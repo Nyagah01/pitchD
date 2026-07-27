@@ -1,0 +1,20 @@
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../../lib/AuthContext";
+
+export default function ProtectedRoute({ children }) {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-bg text-muted">
+        <span className="text-sm">Loading…</span>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}

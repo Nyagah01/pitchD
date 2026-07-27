@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+@theme {
+  --font-header: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Meadow (default) — slate base from nduatileon.site, green/lime from sustainable.co.ke */
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f1f5f9;
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+
+  --color-primary: #159847;
+  --color-primary-deep: #046c4e;
+  --color-primary-soft: rgba(21, 152, 71, 0.1);
+  --color-accent: #4d7c0f;
+  --color-accent-soft: rgba(163, 196, 18, 0.16);
+  --color-danger: #dc2626;
+}
+
+/* Explicit meadow block so every theme (including default) is switchable via data-theme */
+:root,
+[data-theme="meadow"] {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f1f5f9;
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --color-primary: #159847;
+  --color-primary-deep: #046c4e;
+  --color-primary-soft: rgba(21, 152, 71, 0.1);
+  --color-accent: #4d7c0f;
+  --color-accent-soft: rgba(163, 196, 18, 0.16);
+  --color-danger: #dc2626;
+}
+
+/* Merlot — wine red, warm cream light theme */
+[data-theme="merlot"] {
+  --color-bg: #fbf5f3;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f5e6e2;
+  --color-border: rgba(114, 47, 55, 0.14);
+  --color-text: #2a1015;
+  --color-muted: #8a6469;
+  --color-primary: #7b1e3a;
+  --color-primary-deep: #4e1027;
+  --color-primary-soft: rgba(123, 30, 58, 0.1);
+  --color-accent: #b8863b;
+  --color-accent-soft: rgba(184, 134, 59, 0.16);
+  --color-danger: #b3261e;
+}
+
+/* Sunset — warm coral/orange light theme */
+[data-theme="sunset"] {
+  --color-bg: #fff8f2;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffeada;
+  --color-border: rgba(194, 65, 12, 0.14);
+  --color-text: #3a1b08;
+  --color-muted: #9c7259;
+  --color-primary: #d1481f;
+  --color-primary-deep: #9b360f;
+  --color-primary-soft: rgba(209, 72, 31, 0.1);
+  --color-accent: #b8860b;
+  --color-accent-soft: rgba(184, 134, 11, 0.16);
+  --color-danger: #c0392b;
+}
+
+/* Icy — dark navy with teal + sky-blue */
+[data-theme="icy"] {
+  --color-bg: #0b1420;
+  --color-surface: #111e2e;
+  --color-surface-raised: #16293b;
+  --color-border: rgba(148, 197, 214, 0.16);
+  --color-text: #e7f3f7;
+  --color-muted: #82a0b2;
+  --color-primary: #0d9488;
+  --color-primary-deep: #0f766e;
+  --color-primary-soft: rgba(13, 148, 136, 0.2);
+  --color-accent: #38bdf8;
+  --color-accent-soft: rgba(56, 189, 248, 0.18);
+  --color-danger: #f87171;
+}
+
+/* Dark — neutral near-black with a green pulse */
+[data-theme="dark"] {
+  --color-bg: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface-raised: #1c1c1c;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-text: #f1f1ef;
+  --color-muted: #93938d;
+  --color-primary: #16a34a;
+  --color-primary-deep: #15803d;
+  --color-primary-soft: rgba(22, 163, 74, 0.2);
+  --color-accent: #a3c412;
+  --color-accent-soft: rgba(163, 196, 18, 0.18);
+  --color-danger: #ef4444;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-header);
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+/* Glass surface — soft border + lift shadow, used for cards throughout */
+.glass-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -12px rgba(15, 23, 42, 0.12);
+}
+
+/* Signature CTA — pill button with a soft glow, used only on the primary action per screen */
+.cta-glow {
+  transition: box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.cta-glow:hover {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 40%, transparent),
+    0 8px 28px -6px color-mix(in srgb, var(--color-primary) 50%, transparent);
+  transform: translateY(-1px);
+}
+
+/* macOS-style window chrome for the generation log / CV preview — the one signature technical
+   moment, deliberately fixed regardless of the chosen appearance theme */
+.window-chrome {
+  background: #1e1e1e;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 20px 40px -16px rgba(15, 23, 42, 0.25);
+}
+.window-chrome-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: #2b2b2b;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.window-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 9999px;
+}
+.window-dot--red {
+  background: #ff5f56;
+}
+.window-dot--yellow {
+  background: #ffbd2e;
+}
+.window-dot--green {
+  background: #27c93f;
+}
+.window-chrome-title {
+  margin-left: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.terminal-log {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+
+.typewriter-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  background-color: currentColor;
+  vertical-align: text-bottom;
+  animation: typewriter-blink 0.9s steps(1) infinite;
+}
+
+@keyframes typewriter-blink {
+  50% {
+    opacity: 0;
+  }
+}

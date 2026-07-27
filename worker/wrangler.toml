@@ -1,0 +1,17 @@
+name = "pitchd-worker"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+# Daily at 07:00 UTC — sweeps for upcoming interview/deadline reminders
+[triggers]
+crons = ["0 7 * * *"]
+
+# Secrets (set with `wrangler secret put <NAME>`, never committed here):
+#   ANTHROPIC_API_KEY
+#   SUPABASE_SERVICE_ROLE_KEY
+#   RESEND_API_KEY
+#
+# Plain vars (safe to keep here, no secrets):
+[vars]
+SUPABASE_URL = "https://ovzuvblxfieyrgxbolfx.supabase.co"
+REMINDER_FROM_EMAIL = "Pitchd <reminders@pitchd-ke.com>"
