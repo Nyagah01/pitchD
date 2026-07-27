@@ -10,6 +10,9 @@ const TECHNICAL_PATTERNS = [
   { test: /row-level security|permission denied for/i, message: "You don't have access to do that — try signing out and back in." },
   { test: /failed to fetch|networkerror|load failed|err_/i, message: "Shoot — we can't reach the server right now. Check your connection and try again." },
   { test: /unexpected token|is not valid json|syntaxerror/i, message: "Something unexpected happened on our end. We're on it — try again in a moment." },
+  // Raw JS engine internals (WebKit/V8/etc.) that slipped past every specific
+  // pattern above — these are never something a user should have to read.
+  { test: /is not a function|is not defined|cannot read propert|null is not an object|undefined is not an object/i, message: "Something unexpected happened. Please try again, and try a different file format if this was during an upload." },
 ];
 
 export function friendlyError(err) {
