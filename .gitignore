@@ -28,3 +28,6 @@ CEOpic.jpeg
 *.njsproj
 *.sln
 *.sw?
+
+# Raw branding design source files (large, not needed for the app itself)
+Branding/
