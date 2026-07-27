@@ -1,14 +1,5 @@
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "../../lib/ThemeContext";
-
-// Slides fully covering the screen, slight overshoot/bounce as it settles, a brief
-// pause (the real theme swap happens here, see ThemeContext), then continues sliding
-// out the far side. Desktop slides left-to-right; mobile slides top-to-bottom instead,
-// since it reads more naturally on a narrow, tall viewport.
-const KEYFRAMES = ["-100%", "4%", "-1%", "0%", "0%", "100%"];
-const TIMES = [0, 0.32, 0.4, 0.46, 0.62, 1];
-const EASES = ["easeOut", "easeOut", "easeOut", "linear", "easeOut"];
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(
@@ -25,25 +16,29 @@ function useIsMobile() {
   return isMobile;
 }
 
+const WIPE_DURATION_MS = 1100;
+
 export default function ThemeWipeOverlay() {
   const { wipe, clearWipe } = useTheme();
   const isMobile = useIsMobile();
-  const axis = isMobile ? "y" : "x";
+
+  useEffect(() => {
+    if (!wipe) return;
+    // Backstop for onAnimationEnd: if the tab gets backgrounded mid-wipe (animations
+    // pause on hidden tabs), the event may never fire — this guarantees the overlay
+    // still clears instead of getting stuck covering the screen.
+    const timer = window.setTimeout(clearWipe, WIPE_DURATION_MS + 200);
+    return () => window.clearTimeout(timer);
+  }, [wipe, clearWipe]);
+
+  if (!wipe) return null;
 
   return (
-    <AnimatePresence>
-      {wipe && (
-        <motion.div
-          key={wipe.key}
-          className="pointer-events-none fixed inset-0 z-[999]"
-          style={{ backgroundColor: wipe.color }}
-          initial={{ [axis]: KEYFRAMES[0] }}
-          animate={{ [axis]: KEYFRAMES }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1.1, times: TIMES, ease: EASES }}
-          onAnimationComplete={clearWipe}
-        />
-      )}
-    </AnimatePresence>
+    <div
+      key={wipe.key}
+      className={`pointer-events-none fixed inset-0 z-[999] ${isMobile ? "theme-wipe-y" : "theme-wipe-x"}`}
+      style={{ backgroundColor: wipe.color }}
+      onAnimationEnd={clearWipe}
+    />
   );
 }

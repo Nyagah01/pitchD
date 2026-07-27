@@ -1,23 +1,23 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 
 const QUESTIONS = [
-  { id: "name", title: "What's your name?", type: "name" },
+  { id: "name", title: () => "What's your name?", type: "name" },
   {
     id: "experienceLevel",
-    title: "Which best describes your experience?",
+    title: (name) => `Which best describes your experience${name ? `, ${name}` : ""}?`,
     type: "single",
     options: ["No experience", "Less than 1 year", "1–2 years", "3–5 years", "5+ years"],
   },
   {
     id: "referralSource",
-    title: "Where did you hear about Pitchd?",
+    title: (name) => `Where did you hear about Pitchd${name ? `, ${name}` : ""}?`,
     type: "single",
     options: ["Twitter / X", "Google search", "A friend or colleague", "LinkedIn", "Other"],
   },
   {
     id: "goals",
-    title: "What are you looking to use Pitchd for?",
+    title: (name) => `What are you looking to use Pitchd for${name ? `, ${name}` : ""}?`,
     subtitle: "Pick as many as apply.",
     type: "multi",
     options: [
@@ -30,6 +30,8 @@ const QUESTIONS = [
     ],
   },
 ];
+
+const SWIPE_THRESHOLD = 50;
 
 function OptionButton({ label, selected, onClick }) {
   return (
@@ -89,6 +91,23 @@ export default function OnboardingSurvey({ onComplete }) {
     else goNext();
   }
 
+  const touchStartX = useRef(null);
+
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e) {
+    if (touchStartX.current == null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (deltaX < -SWIPE_THRESHOLD) {
+      if (canAdvance()) goNext();
+    } else if (deltaX > SWIPE_THRESHOLD) {
+      goBack();
+    }
+  }
+
   return (
     <div className="glass-card rounded-3xl p-6 sm:p-8">
       <div className="mb-6 flex items-center justify-between text-xs font-medium text-muted">
@@ -105,9 +124,9 @@ export default function OnboardingSurvey({ onComplete }) {
         </div>
       </div>
 
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div key={question.id} className="flashcard-enter">
-          <h2 className="text-lg font-bold text-text">{question.title}</h2>
+          <h2 className="text-lg font-bold text-text">{question.title(firstName.trim())}</h2>
           {question.subtitle && <p className="mt-1 text-sm text-muted">{question.subtitle}</p>}
 
           <div className="mt-5 flex flex-col gap-3">
