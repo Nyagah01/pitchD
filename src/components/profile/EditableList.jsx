@@ -1,17 +1,33 @@
 import { useState } from "react";
 import { Plus, Trash2, Pencil, Check } from "lucide-react";
+import TagInput from "../common/TagInput";
 
-function Field({ label, value, onChange, textarea }) {
+function isValidDateInput(v) {
+  return !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+function Field({ label, value, onChange, textarea, type }) {
   const Comp = textarea ? "textarea" : "input";
+  const safeValue = type === "date" && !isValidDateInput(value) ? "" : (value ?? "");
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <Comp
-        value={value ?? ""}
+        type={type}
+        value={safeValue}
         onChange={(e) => onChange(e.target.value)}
         rows={textarea ? 2 : undefined}
         className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
       />
+    </label>
+  );
+}
+
+function ListField({ label, value, onChange }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
+      <TagInput value={value} onChange={onChange} placeholder="Type and press Enter" />
     </label>
   );
 }
@@ -28,8 +44,7 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
   }
 
   function updateDraft(key, value) {
-    const field = fields.find((f) => f.key === key);
-    setDraft({ ...draft, [key]: field?.isList ? value.split(",").map((s) => s.trim()).filter(Boolean) : value });
+    setDraft({ ...draft, [key]: value });
   }
 
   async function saveDraft() {
@@ -79,14 +94,13 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
         {isEditingNew && (
           <div className="rounded-xl border border-primary/40 bg-surface p-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {fields.map(({ key, label, textarea, span, isList }) => (
+              {fields.map(({ key, label, textarea, span, isList, type }) => (
                 <div key={key} className={span ? "col-span-2" : ""}>
-                  <Field
-                    label={label}
-                    textarea={textarea}
-                    value={isList ? (draft[key] ?? []).join(", ") : draft[key]}
-                    onChange={(v) => updateDraft(key, v)}
-                  />
+                  {isList ? (
+                    <ListField label={label} value={draft[key]} onChange={(v) => updateDraft(key, v)} />
+                  ) : (
+                    <Field label={label} textarea={textarea} type={type} value={draft[key]} onChange={(v) => updateDraft(key, v)} />
+                  )}
                 </div>
               ))}
             </div>
@@ -121,14 +135,13 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
           editingId === item.id ? (
             <div key={item.id} className="rounded-xl border border-primary/40 bg-surface p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {fields.map(({ key, label, textarea, span, isList }) => (
+                {fields.map(({ key, label, textarea, span, isList, type }) => (
                   <div key={key} className={span ? "col-span-2" : ""}>
-                    <Field
-                      label={label}
-                      textarea={textarea}
-                      value={isList ? (draft[key] ?? []).join(", ") : draft[key]}
-                      onChange={(v) => updateDraft(key, v)}
-                    />
+                    {isList ? (
+                      <ListField label={label} value={draft[key]} onChange={(v) => updateDraft(key, v)} />
+                    ) : (
+                      <Field label={label} textarea={textarea} type={type} value={draft[key]} onChange={(v) => updateDraft(key, v)} />
+                    )}
                   </div>
                 ))}
               </div>

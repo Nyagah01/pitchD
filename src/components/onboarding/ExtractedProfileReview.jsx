@@ -1,17 +1,37 @@
 import { useState } from "react";
 import { X, Plus } from "lucide-react";
+import TagInput from "../common/TagInput";
 
-function Field({ label, value, onChange, textarea }) {
+function isValidDateInput(v) {
+  return !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+function Field({ label, value, onChange, textarea, type }) {
   const Comp = textarea ? "textarea" : "input";
+  // AI-extracted dates ("2021", "Jun 2020") rarely match the yyyy-mm-dd a date
+  // input requires — showing them in a text box would silently fail to save
+  // (Postgres date column) with no clue which field was wrong. Blank + a real
+  // calendar picker beats that.
+  const safeValue = type === "date" && !isValidDateInput(value) ? "" : (value ?? "");
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <Comp
-        value={value ?? ""}
+        type={type}
+        value={safeValue}
         onChange={(e) => onChange(e.target.value)}
         rows={textarea ? 2 : undefined}
         className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
       />
+    </label>
+  );
+}
+
+function ListField({ label, value, onChange, placeholder }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
+      <TagInput value={value} onChange={onChange} placeholder={placeholder} />
     </label>
   );
 }
@@ -60,24 +80,24 @@ function ArraySection({ title, items, setItems, fields, emptyItem }) {
               <X size={15} />
             </button>
             <div className="grid grid-cols-1 gap-3 pr-6 sm:grid-cols-2">
-              {fields.map(({ key, label, textarea, span }) => (
+              {fields.map(({ key, label, textarea, span, isList, type }) => (
                 <div key={key} className={span ? "col-span-2" : ""}>
-                  <Field
-                    label={label}
-                    value={
-                      Array.isArray(item[key]) ? item[key].join(", ") : item[key]
-                    }
-                    textarea={textarea}
-                    onChange={(v) =>
-                      updateItem(
-                        idx,
-                        key,
-                        fields.find((f) => f.key === key)?.isList
-                          ? v.split(",").map((s) => s.trim()).filter(Boolean)
-                          : v
-                      )
-                    }
-                  />
+                  {isList ? (
+                    <ListField
+                      label={label}
+                      value={item[key]}
+                      placeholder="Type and press Enter"
+                      onChange={(v) => updateItem(idx, key, v)}
+                    />
+                  ) : (
+                    <Field
+                      label={label}
+                      value={item[key]}
+                      textarea={textarea}
+                      type={type}
+                      onChange={(v) => updateItem(idx, key, v)}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -90,6 +110,8 @@ function ArraySection({ title, items, setItems, fields, emptyItem }) {
 
 export default function ExtractedProfileReview({ data, onSave, onBack, saving }) {
   const [profile, setProfile] = useState(data.profile ?? {});
+  const [firstName, setFirstName] = useState(() => (data.profile?.full_name ?? "").split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(() => (data.profile?.full_name ?? "").split(" ").slice(1).join(" "));
   const [experience, setExperience] = useState(data.experience ?? []);
   const [education, setEducation] = useState(data.education ?? []);
   const [skills, setSkills] = useState(data.skills ?? []);
@@ -97,12 +119,19 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
   const [projects, setProjects] = useState(data.projects ?? []);
   const [uncategorized, setUncategorized] = useState(data.uncategorized ?? []);
 
+  function updateName(first, last) {
+    setFirstName(first);
+    setLastName(last);
+    setProfile((p) => ({ ...p, full_name: `${first} ${last}`.trim() }));
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <section className="rounded-xl border border-border bg-surface p-4">
         <h3 className="mb-3 text-sm font-semibold text-text">Basics</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Full name" value={profile.full_name} onChange={(v) => setProfile({ ...profile, full_name: v })} />
+          <Field label="First name" value={firstName} onChange={(v) => updateName(v, lastName)} />
+          <Field label="Last name" value={lastName} onChange={(v) => updateName(firstName, v)} />
           <Field label="Headline" value={profile.headline} onChange={(v) => setProfile({ ...profile, headline: v })} />
           <Field label="Email" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} />
           <Field label="Phone" value={profile.phone} onChange={(v) => setProfile({ ...profile, phone: v })} />
@@ -122,11 +151,11 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
         fields={[
           { key: "company", label: "Company" },
           { key: "role", label: "Role" },
-          { key: "start_date", label: "Start date" },
-          { key: "end_date", label: "End date" },
+          { key: "start_date", label: "Start date", type: "date" },
+          { key: "end_date", label: "End date", type: "date" },
           { key: "description", label: "Description", textarea: true, span: true },
-          { key: "achievements", label: "Achievements (comma-separated)", textarea: true, span: true, isList: true },
-          { key: "skills_used", label: "Skills used (comma-separated)", span: true, isList: true },
+          { key: "achievements", label: "Achievements", span: true, isList: true },
+          { key: "skills_used", label: "Skills used", span: true, isList: true },
         ]}
       />
 
@@ -140,8 +169,8 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
           { key: "degree", label: "Degree" },
           { key: "field", label: "Field" },
           { key: "grade", label: "Grade" },
-          { key: "start_date", label: "Start date" },
-          { key: "end_date", label: "End date" },
+          { key: "start_date", label: "Start date", type: "date" },
+          { key: "end_date", label: "End date", type: "date" },
         ]}
       />
 
@@ -166,7 +195,7 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
           { key: "name", label: "Name" },
           { key: "url", label: "URL" },
           { key: "description", label: "Description", textarea: true, span: true },
-          { key: "tech_stack", label: "Tech stack (comma-separated)", isList: true },
+          { key: "tech_stack", label: "Tech stack", isList: true },
           { key: "impact", label: "Impact" },
         ]}
       />
@@ -179,7 +208,7 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
         fields={[
           { key: "name", label: "Name" },
           { key: "issuer", label: "Issuer" },
-          { key: "date_issued", label: "Date issued" },
+          { key: "date_issued", label: "Date issued", type: "date" },
           { key: "credential_url", label: "Credential URL" },
         ]}
       />

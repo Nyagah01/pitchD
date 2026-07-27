@@ -8,7 +8,7 @@ import { useTheme } from "../../lib/ThemeContext";
 // since it reads more naturally on a narrow, tall viewport.
 const KEYFRAMES = ["-100%", "4%", "-1%", "0%", "0%", "100%"];
 const TIMES = [0, 0.32, 0.4, 0.46, 0.62, 1];
-const EASES = ["easeOut", "easeOut", "easeOut", "linear", "easeIn"];
+const EASES = ["easeOut", "easeOut", "easeOut", "linear", "easeOut"];
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(

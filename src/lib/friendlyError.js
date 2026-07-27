@@ -4,6 +4,7 @@
 // human-readable auth errors, or messages claudeApi.js has already classified)
 // pass through unchanged — this only intercepts the genuinely ugly ones.
 const TECHNICAL_PATTERNS = [
+  { test: /invalid input syntax for type date/i, message: "One of the dates you entered isn't valid — check the date fields and try again." },
   { test: /column .* does not exist/i, message: "Something's misconfigured on our end. We're on it — try again shortly." },
   { test: /violates .*constraint|duplicate key/i, message: "That didn't save cleanly on our end — try again, and let us know if it keeps happening." },
   { test: /row-level security|permission denied for/i, message: "You don't have access to do that — try signing out and back in." },

@@ -110,11 +110,11 @@ export default function Profile() {
         fields={[
           { key: "company", label: "Company" },
           { key: "role", label: "Role" },
-          { key: "start_date", label: "Start date" },
-          { key: "end_date", label: "End date" },
+          { key: "start_date", label: "Start date", type: "date" },
+          { key: "end_date", label: "End date", type: "date" },
           { key: "description", label: "Description", textarea: true, span: true },
-          { key: "achievements", label: "Achievements (comma-separated)", textarea: true, span: true, isList: true },
-          { key: "skills_used", label: "Skills used (comma-separated)", span: true, isList: true },
+          { key: "achievements", label: "Achievements", span: true, isList: true },
+          { key: "skills_used", label: "Skills used", span: true, isList: true },
         ]}
         renderSummary={(item) => (
           <div>
@@ -136,8 +136,8 @@ export default function Profile() {
           { key: "degree", label: "Degree" },
           { key: "field", label: "Field" },
           { key: "grade", label: "Grade" },
-          { key: "start_date", label: "Start date" },
-          { key: "end_date", label: "End date" },
+          { key: "start_date", label: "Start date", type: "date" },
+          { key: "end_date", label: "End date", type: "date" },
         ]}
         renderSummary={(item) => (
           <div>
@@ -161,7 +161,7 @@ export default function Profile() {
           { key: "github_url", label: "GitHub URL" },
           { key: "impact", label: "Impact" },
           { key: "description", label: "Description", textarea: true, span: true },
-          { key: "tech_stack", label: "Tech stack (comma-separated)", span: true, isList: true },
+          { key: "tech_stack", label: "Tech stack", span: true, isList: true },
         ]}
         renderSummary={(item) => (
           <div>
@@ -181,7 +181,7 @@ export default function Profile() {
         fields={[
           { key: "name", label: "Name" },
           { key: "issuer", label: "Issuer" },
-          { key: "date_issued", label: "Date issued" },
+          { key: "date_issued", label: "Date issued", type: "date" },
           { key: "credential_url", label: "Credential URL" },
         ]}
         renderSummary={(item) => (
