@@ -45,17 +45,20 @@ function NavThemeSwitcher() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:border-primary/40"
+        className="flex items-center gap-2 rounded-full border border-border bg-surface px-2 py-2 text-sm font-medium text-text hover:border-primary/40 sm:px-3"
         aria-label="Change appearance"
       >
         <Palette size={15} />
-        <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: current.swatch }} />
+        <span
+          className="hidden h-3 w-3 rounded-full border border-black/10 sm:inline-block"
+          style={{ backgroundColor: current.swatch }}
+        />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="glass-card absolute right-0 z-20 mt-2 w-44 rounded-2xl p-1.5">
+          <div className="glass-card absolute left-0 z-20 mt-2 w-44 rounded-2xl p-1.5 sm:left-auto sm:right-0">
             {THEMES.map((t) => (
               <button
                 key={t.id}
@@ -101,9 +104,7 @@ export default function Landing() {
           </nav>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="hidden sm:block">
-              <NavThemeSwitcher />
-            </div>
+            <NavThemeSwitcher />
             <Link
               to="/login"
               className="rounded-full px-3 py-2 text-sm font-semibold text-text hover:bg-surface-raised sm:px-4"
@@ -213,9 +214,10 @@ export default function Landing() {
             <TypewriterLines lines={ceoLines} onDone={() => setSignatureVisible(true)} />
           </div>
           {signatureVisible && (
-            <p className="mt-4 text-sm font-semibold text-text">
-              {CEO_NAME}, <span className="font-normal text-muted">{CEO_TITLE}</span>
-            </p>
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-text">{CEO_NAME}</p>
+              <p className="text-sm font-normal text-muted">{CEO_TITLE}</p>
+            </div>
           )}
         </div>
       </section>

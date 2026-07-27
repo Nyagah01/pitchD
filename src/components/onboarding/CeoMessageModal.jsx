@@ -36,9 +36,10 @@ export default function CeoMessageModal({ open, onClose, firstName }) {
         <div className="flex flex-col gap-3">
           <TypewriterLines lines={lines} onDone={() => setSignatureVisible(true)} />
           {signatureVisible && (
-            <p className="mt-2 text-sm font-semibold text-text">
-              {CEO_NAME}, <span className="font-normal text-muted">{CEO_TITLE}</span>
-            </p>
+            <div className="mt-2">
+              <p className="text-sm font-semibold text-text">{CEO_NAME}</p>
+              <p className="text-sm font-normal text-muted">{CEO_TITLE}</p>
+            </div>
           )}
         </div>
 
