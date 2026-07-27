@@ -1,5 +1,11 @@
 name = "pitchd"
 compatibility_date = "2025-01-01"
+workers_dev = true
+
+routes = [
+  { pattern = "pitchd-ke.com", custom_domain = true },
+  { pattern = "www.pitchd-ke.com", custom_domain = true }
+]
 
 [assets]
 directory = "dist"
