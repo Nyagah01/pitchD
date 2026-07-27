@@ -21,6 +21,9 @@ create table profile (
   raw_intake text,              -- latest free-text/resume dump, kept for re-parsing
   daily_goal integer not null default 3,   -- gamification: target applications/day
   lessons_learned text[] not null default '{}',  -- synthesized from rejection feedback
+  experience_level text,        -- from onboarding survey, e.g. "1–2 years"
+  referral_source text,         -- from onboarding survey, e.g. "Twitter / X"
+  goals text[] not null default '{}',  -- from onboarding survey, e.g. {"Landing a new job"}
   updated_at timestamptz not null default now()
 );
 

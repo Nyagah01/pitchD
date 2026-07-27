@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DumpInput from "../components/onboarding/DumpInput";
 import ResumeUpload from "../components/onboarding/ResumeUpload";
 import ExtractedProfileReview from "../components/onboarding/ExtractedProfileReview";
+import OnboardingSurvey from "../components/onboarding/OnboardingSurvey";
 import TaskChecklist from "../components/generate/TaskChecklist";
 import CeoMessageModal from "../components/onboarding/CeoMessageModal";
 import { structureProfile } from "../lib/claudeApi";
@@ -10,7 +11,7 @@ import { getProfile, upsertProfile, experienceApi, educationApi, skillsApi, cert
 import { friendlyError } from "../lib/friendlyError";
 import { useAuth } from "../lib/AuthContext";
 
-const STEPS = { INTAKE: "intake", STRUCTURING: "structuring", REVIEW: "review", SAVING: "saving" };
+const STEPS = { SURVEY: "survey", INTAKE: "intake", STRUCTURING: "structuring", REVIEW: "review", SAVING: "saving" };
 
 const STRUCTURING_STEPS = [
   "Reading your dump",
@@ -32,7 +33,8 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const [checking, setChecking] = useState(true);
-  const [step, setStep] = useState(STEPS.INTAKE);
+  const [step, setStep] = useState(STEPS.SURVEY);
+  const [surveyData, setSurveyData] = useState(null);
   const [dump, setDump] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [error, setError] = useState("");
@@ -54,6 +56,11 @@ export default function Onboarding() {
       .catch(() => setChecking(false));
   }, [navigate]);
 
+  function handleSurveyComplete(data) {
+    setSurveyData(data);
+    setStep(STEPS.INTAKE);
+  }
+
   async function handleStructure() {
     const combined = [dump, resumeText].filter(Boolean).join("\n\n---\n\n");
     if (!combined.trim()) {
@@ -66,6 +73,9 @@ export default function Onboarding() {
     setShowCeoMessage(true);
     try {
       const result = await structureProfile(combined);
+      if (surveyData?.fullName) {
+        result.profile = { ...result.profile, full_name: surveyData.fullName };
+      }
       setStructuringDone(true);
       await sleep(650);
       setStructured(result);
@@ -83,7 +93,13 @@ export default function Onboarding() {
     setStep(STEPS.SAVING);
     try {
       const rawIntake = [dump, resumeText, ...(reviewed.uncategorized ?? [])].filter(Boolean).join("\n\n---\n\n");
-      await upsertProfile({ ...reviewed.profile, raw_intake: rawIntake });
+      await upsertProfile({
+        ...reviewed.profile,
+        raw_intake: rawIntake,
+        experience_level: surveyData?.experienceLevel || null,
+        referral_source: surveyData?.referralSource || null,
+        goals: surveyData?.goals ?? [],
+      });
       await Promise.all([
         ...reviewed.experience.map((row, i) => experienceApi.create({ ...row, order_index: i })),
         ...reviewed.education.map((row) => educationApi.create(row)),
@@ -117,6 +133,8 @@ export default function Onboarding() {
             One dump, structured once — every CV and cover letter after this reorders and rewrites it, never invents.
           </p>
         </div>
+
+        {step === STEPS.SURVEY && <OnboardingSurvey onComplete={handleSurveyComplete} />}
 
         {step === STEPS.INTAKE && (
           <div className="flex flex-col gap-6">

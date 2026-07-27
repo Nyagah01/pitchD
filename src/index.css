@@ -190,6 +190,21 @@ h4 {
   line-height: 1.65;
 }
 
+.flashcard-enter {
+  animation: flashcard-enter 0.25s ease-out;
+}
+
+@keyframes flashcard-enter {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .typewriter-cursor {
   display: inline-block;
   width: 2px;
