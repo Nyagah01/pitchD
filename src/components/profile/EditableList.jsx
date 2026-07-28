@@ -17,7 +17,7 @@ function Field({ label, value, onChange, textarea, type }) {
         value={safeValue}
         onChange={(e) => onChange(e.target.value)}
         rows={textarea ? 2 : undefined}
-        className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
+        className="w-full min-w-0 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
       />
     </label>
   );
