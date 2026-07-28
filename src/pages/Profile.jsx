@@ -185,7 +185,7 @@ export default function Profile() {
           { key: "name", label: "Name" },
           { key: "issuer", label: "Issuer" },
           { key: "date_issued", label: "Date issued", type: "date" },
-          { key: "credential_url", label: "Credential URL" },
+          { key: "credential_url", label: "Credential URL (optional)" },
         ]}
         renderSummary={(item) => (
           <div>

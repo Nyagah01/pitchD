@@ -209,7 +209,7 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
           { key: "name", label: "Name" },
           { key: "issuer", label: "Issuer" },
           { key: "date_issued", label: "Date issued", type: "date" },
-          { key: "credential_url", label: "Credential URL" },
+          { key: "credential_url", label: "Credential URL (optional)" },
         ]}
       />
 
