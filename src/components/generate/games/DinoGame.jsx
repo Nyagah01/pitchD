@@ -103,7 +103,7 @@ export default function DinoGame() {
       </p>
       <div
         onClick={jump}
-        className="relative cursor-pointer overflow-hidden rounded-xl border border-border bg-[#f7f7f7]"
+        className="relative touch-none select-none cursor-pointer overflow-hidden rounded-xl border border-border bg-[#f7f7f7]"
         style={{ width: WIDTH, height: HEIGHT }}
       >
         <div className="absolute left-0 right-0 border-t border-[#535353]" style={{ top: GROUND }} />

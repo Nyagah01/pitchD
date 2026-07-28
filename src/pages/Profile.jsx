@@ -186,7 +186,7 @@ export default function Profile() {
           { key: "company", label: "Company" },
           { key: "role", label: "Role" },
           { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently working here" },
+          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently working here", span: true },
           { key: "description", label: "Description", textarea: true, span: true },
           { key: "achievements", label: "Achievements", span: true, isList: true },
           { key: "skills_used", label: "Skills used", span: true, isList: true },
@@ -212,7 +212,7 @@ export default function Profile() {
           { key: "field", label: "Field" },
           { key: "grade", label: "Grade" },
           { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently studying here" },
+          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently studying here", span: true },
         ]}
         renderSummary={(item) => (
           <div>

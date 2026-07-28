@@ -104,7 +104,7 @@ export default function FlappyGame() {
       </p>
       <div
         onClick={flap}
-        className="relative cursor-pointer overflow-hidden rounded-xl border border-border"
+        className="relative touch-none select-none cursor-pointer overflow-hidden rounded-xl border border-border"
         style={{ width: WIDTH, height: HEIGHT, background: "linear-gradient(#bee7ff, #eaf8ff)" }}
       >
         <div

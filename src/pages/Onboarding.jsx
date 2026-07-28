@@ -15,6 +15,22 @@ import { useAuth } from "../lib/AuthContext";
 
 const STEPS = { SURVEY: "survey", INTAKE: "intake", STRUCTURING: "structuring", REVIEW: "review", SAVING: "saving" };
 
+function isValidDateInput(v) {
+  return !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+// AI-extracted dates the user never touched can still be unparseable ("Jun
+// 2020") even though the review form displayed them as blank — save them as
+// blank too, rather than letting the raw string hit the database and fail
+// with no indication of which row caused it.
+function sanitizeDates(row, keys) {
+  const clean = { ...row };
+  for (const k of keys) {
+    if (!isValidDateInput(clean[k])) clean[k] = null;
+  }
+  return clean;
+}
+
 const STRUCTURING_STEPS = [
   "Reading your dump",
   "Extracting experience, education, skills, projects",
@@ -115,10 +131,12 @@ export default function Onboarding() {
         goals: surveyData?.goals ?? [],
       });
       await Promise.all([
-        ...reviewed.experience.map((row, i) => experienceApi.create({ ...row, order_index: i })),
-        ...reviewed.education.map((row) => educationApi.create(row)),
+        ...reviewed.experience.map((row, i) =>
+          experienceApi.create({ ...sanitizeDates(row, ["start_date", "end_date"]), order_index: i })
+        ),
+        ...reviewed.education.map((row) => educationApi.create(sanitizeDates(row, ["start_date", "end_date"]))),
         ...reviewed.skills.map((row) => skillsApi.create(row)),
-        ...reviewed.certifications.map((row) => certificationsApi.create(row)),
+        ...reviewed.certifications.map((row) => certificationsApi.create(sanitizeDates(row, ["date_issued"]))),
         ...reviewed.projects.map((row) => projectsApi.create(row)),
       ]);
       setSavingDone(true);

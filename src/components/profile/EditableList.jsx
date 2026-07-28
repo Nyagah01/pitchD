@@ -102,25 +102,45 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
   const [draft, setDraft] = useState({});
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   function startEdit(item) {
     setEditingId(item.id);
     setDraft(item);
+    setError("");
   }
 
   function updateDraft(key, value) {
     setDraft({ ...draft, [key]: value });
   }
 
+  // A date field that displays blank (invalid/unparseable AI-extracted value the
+  // user never touched) must also SAVE as blank — otherwise the stale raw string
+  // sails through untouched and only fails at the database, with no clue which
+  // field it was.
+  function sanitizedDraft() {
+    const clean = { ...draft };
+    for (const f of fields) {
+      if (f.type === "date" && !isValidDateInput(clean[f.key])) {
+        clean[f.key] = null;
+      }
+    }
+    return clean;
+  }
+
   async function saveDraft() {
     setBusy(true);
+    setError("");
     try {
-      if (adding) await api.create(draft);
-      else await api.update(editingId, draft);
+      const clean = sanitizedDraft();
+      if (adding) await api.create(clean);
+      else await api.update(editingId, clean);
       setEditingId(null);
       setAdding(false);
       setDraft({});
       onChanged();
+    } catch (err) {
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -140,6 +160,7 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
     setAdding(true);
     setEditingId("new");
     setDraft({ ...emptyItem });
+    setError("");
   }
 
   const isEditingNew = adding && editingId === "new";
@@ -179,11 +200,13 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
                 </div>
               ))}
             </div>
+            {error && <p className="mt-2 text-xs text-danger">{error}</p>}
             <div className="mt-3 flex justify-end gap-2">
               <button
                 onClick={() => {
                   setAdding(false);
                   setEditingId(null);
+                  setError("");
                 }}
                 className="text-xs text-muted hover:text-text"
               >
@@ -210,18 +233,35 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
           editingId === item.id ? (
             <div key={item.id} className="rounded-xl border border-primary/40 bg-surface p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {fields.map(({ key, label, textarea, span, isList, type }) => (
+                {fields.map(({ key, label, textarea, span, isList, type, allowPresent, presentLabel }) => (
                   <div key={key} className={span ? "col-span-2" : ""}>
                     {isList ? (
                       <ListField label={label} value={draft[key]} onChange={(v) => updateDraft(key, v)} />
+                    ) : type === "file" ? (
+                      <FileField label={label} value={draft[key]} onChange={(v) => updateDraft(key, v)} />
                     ) : (
-                      <Field label={label} textarea={textarea} type={type} value={draft[key]} onChange={(v) => updateDraft(key, v)} />
+                      <Field
+                        label={label}
+                        textarea={textarea}
+                        type={type}
+                        allowPresent={allowPresent}
+                        presentLabel={presentLabel}
+                        value={draft[key]}
+                        onChange={(v) => updateDraft(key, v)}
+                      />
                     )}
                   </div>
                 ))}
               </div>
+              {error && <p className="mt-2 text-xs text-danger">{error}</p>}
               <div className="mt-3 flex justify-end gap-2">
-                <button onClick={() => setEditingId(null)} className="text-xs text-muted hover:text-text">
+                <button
+                  onClick={() => {
+                    setEditingId(null);
+                    setError("");
+                  }}
+                  className="text-xs text-muted hover:text-text"
+                >
                   Cancel
                 </button>
                 <button
