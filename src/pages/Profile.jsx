@@ -59,6 +59,8 @@ export default function Profile() {
 
       <ProfileStrength score={score} gaps={gaps} />
 
+      <PortfolioGenerator />
+
       <UpdateFromMasterFile currentProfile={data.profile} onMerged={reload} />
 
       <section className="rounded-2xl border border-border bg-surface p-5">
@@ -197,8 +199,6 @@ export default function Profile() {
         lessons={data.profile?.lessons_learned ?? []}
         onChange={(lessons) => upsertProfile({ lessons_learned: lessons }).then(reload)}
       />
-
-      <PortfolioGenerator />
     </div>
   );
 }

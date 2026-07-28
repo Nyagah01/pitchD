@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Send, UserRound, KanbanSquare } from "lucide-react";
 import ProfileStrength from "../components/profile/ProfileStrength";
+import PortfolioBanner from "../components/profile/PortfolioBanner";
 import UpcomingPanel from "../components/applications/UpcomingPanel";
 import MomentumPanel from "../components/applications/MomentumPanel";
 import { getFullProfile, computeProfileStrength, upsertProfile } from "../lib/profile";
@@ -36,6 +37,8 @@ export default function Dashboard() {
         </h1>
         <p className="mt-1 text-sm text-muted">Here's where the hunt stands.</p>
       </div>
+
+      <PortfolioBanner />
 
       {strength && <ProfileStrength score={strength.score} gaps={strength.gaps} />}
 
