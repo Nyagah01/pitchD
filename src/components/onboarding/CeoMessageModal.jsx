@@ -15,8 +15,8 @@ export default function CeoMessageModal({ open, onClose, firstName }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="glass-card w-full max-w-md rounded-3xl p-6">
-        <div className="mb-4 flex items-start justify-between">
+      <div className="glass-card flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl">
+        <div className="flex shrink-0 items-start justify-between p-6 pb-4">
           <div className="flex items-center gap-3">
             <img
               src="/ceo-photo.jpg"
@@ -33,22 +33,26 @@ export default function CeoMessageModal({ open, onClose, firstName }) {
           </button>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <TypewriterLines lines={lines} onDone={() => setSignatureVisible(true)} />
-          {signatureVisible && (
-            <div className="mt-2">
-              <p className="text-sm font-semibold text-text">{CEO_NAME}</p>
-              <p className="text-sm font-normal text-muted">{CEO_TITLE}</p>
-            </div>
-          )}
+        <div className="overflow-y-auto px-6">
+          <div className="flex flex-col gap-3">
+            <TypewriterLines lines={lines} onDone={() => setSignatureVisible(true)} />
+            {signatureVisible && (
+              <div className="mt-2">
+                <p className="text-sm font-semibold text-text">{CEO_NAME}</p>
+                <p className="text-sm font-normal text-muted">{CEO_TITLE}</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="cta-glow mt-6 w-full rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white"
-        >
-          Continue
-        </button>
+        <div className="shrink-0 p-6 pt-4">
+          <button
+            onClick={onClose}
+            className="cta-glow w-full rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Continue
+          </button>
+        </div>
       </div>
     </div>
   );

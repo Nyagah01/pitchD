@@ -17,6 +17,7 @@ export default function DinoGame() {
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [running, setRunning] = useState(true);
+  const [started, setStarted] = useState(false);
 
   const velocityRef = useRef(0);
   const spawnTimerRef = useRef(1);
@@ -32,6 +33,7 @@ export default function DinoGame() {
       restart();
       return;
     }
+    if (!started) setStarted(true);
     if (dinoYRef.current === 0) velocityRef.current = JUMP_V;
   }
 
@@ -40,6 +42,7 @@ export default function DinoGame() {
     setObstacles([]);
     setScore(0);
     setGameOver(false);
+    setStarted(false);
     velocityRef.current = 0;
     spawnTimerRef.current = 1;
     setRunning(true);
@@ -115,7 +118,12 @@ export default function DinoGame() {
             style={{ width: OBSTACLE_W, height: OBSTACLE_H, left: o.x, top: GROUND - OBSTACLE_H }}
           />
         ))}
-        {!gameOver && <p className="absolute right-2 top-2 text-[10px] text-[#999]">space / tap to jump</p>}
+        {!started && !gameOver && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+            <p className="rounded-full bg-white/90 px-4 py-2 text-xs font-semibold text-[#535353]">Tap / space to jump</p>
+          </div>
+        )}
+        {started && !gameOver && <p className="absolute right-2 top-2 text-[10px] text-[#999]">tap / space</p>}
         {gameOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/85">
             <p className="text-sm font-bold text-[#535353]">Game over — {Math.floor(score)}</p>

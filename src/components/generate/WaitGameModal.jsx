@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Gamepad2, Sparkles } from "lucide-react";
+import { X, ArrowLeft, Gamepad2, Sparkles } from "lucide-react";
 import RPSGame from "./games/RPSGame";
 import DinoGame, { WIDTH as DINO_W, HEIGHT as DINO_H } from "./games/DinoGame";
 import FlappyGame, { WIDTH as FLAPPY_W, HEIGHT as FLAPPY_H } from "./games/FlappyGame";
@@ -23,9 +23,18 @@ export default function WaitGameModal({ open, onClose, ready, onViewResults }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 sm:px-4">
-      <div className="glass-card max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="glass-card flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-3xl">
+        <div className="flex shrink-0 items-center justify-between p-4 pb-3 sm:p-6 sm:pb-4">
           <div className="flex items-center gap-2">
+            {selected && (
+              <button
+                onClick={() => setSelected(null)}
+                className="-ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-raised hover:text-text"
+                aria-label="Choose a different game"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            )}
             <Gamepad2 size={18} className="text-primary" />
             <h3 className="text-sm font-semibold text-text">{selectedGame ? selectedGame.label : "Play while you wait"}</h3>
           </div>
@@ -34,51 +43,46 @@ export default function WaitGameModal({ open, onClose, ready, onViewResults }) {
           </button>
         </div>
 
-        {ready && (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary/30 bg-primary-soft p-3">
-            <span className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Sparkles size={15} /> Documents ready!
-            </span>
-            <div className="flex items-center gap-2">
-              <button onClick={onClose} className="text-xs font-medium text-muted hover:text-text">
-                Keep playing
-              </button>
-              <button
-                onClick={onViewResults}
-                className="cta-glow rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
-              >
-                View results
-              </button>
+        <div className="overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6">
+          {ready && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary/30 bg-primary-soft p-3">
+              <span className="flex items-center gap-2 text-sm font-medium text-primary">
+                <Sparkles size={15} /> Documents ready!
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={onClose} className="text-xs font-medium text-muted hover:text-text">
+                  Keep playing
+                </button>
+                <button
+                  onClick={onViewResults}
+                  className="cta-glow rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  View results
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {!selected ? (
-          <div className="flex flex-col gap-2">
-            {GAMES.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setSelected(g.id)}
-                className="rounded-2xl border border-border bg-surface px-4 py-3 text-left text-sm font-medium text-text hover:border-primary/40"
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div>
-            {selectedGame.width ? (
-              <GameScaler width={selectedGame.width} height={selectedGame.height}>
-                <Game />
-              </GameScaler>
-            ) : (
+          {!selected ? (
+            <div className="flex flex-col gap-2">
+              {GAMES.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => setSelected(g.id)}
+                  className="rounded-2xl border border-border bg-surface px-4 py-3 text-left text-sm font-medium text-text hover:border-primary/40"
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          ) : selectedGame.width ? (
+            <GameScaler width={selectedGame.width} height={selectedGame.height}>
               <Game />
-            )}
-            <button onClick={() => setSelected(null)} className="mt-1 text-xs font-medium text-muted hover:text-text">
-              ← Choose a different game
-            </button>
-          </div>
-        )}
+            </GameScaler>
+          ) : (
+            <Game />
+          )}
+        </div>
       </div>
     </div>
   );

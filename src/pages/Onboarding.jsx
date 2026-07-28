@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Gamepad2 } from "lucide-react";
 import DumpInput from "../components/onboarding/DumpInput";
 import ResumeUpload from "../components/onboarding/ResumeUpload";
 import ExtractedProfileReview from "../components/onboarding/ExtractedProfileReview";
 import OnboardingSurvey from "../components/onboarding/OnboardingSurvey";
 import TaskChecklist from "../components/generate/TaskChecklist";
 import CeoMessageModal from "../components/onboarding/CeoMessageModal";
+import WaitGameModal from "../components/generate/WaitGameModal";
 import { structureProfile } from "../lib/claudeApi";
 import { getProfile, upsertProfile, experienceApi, educationApi, skillsApi, certificationsApi, projectsApi } from "../lib/profile";
 import { friendlyError } from "../lib/friendlyError";
@@ -25,6 +27,8 @@ const SAVING_STEPS = [
   "Adding skills, certifications & projects",
 ];
 
+const GAME_PROMPT_DELAY_MS = 15000;
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -43,9 +47,13 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false);
   const [savingDone, setSavingDone] = useState(false);
   const [showCeoMessage, setShowCeoMessage] = useState(false);
+  const [showGamePrompt, setShowGamePrompt] = useState(false);
+  const [showGameModal, setShowGameModal] = useState(false);
+  const promptTimerRef = useRef(null);
 
   const metadata = session?.user?.user_metadata ?? {};
-  const firstName = (metadata.full_name || metadata.name || "").split(" ")[0] || null;
+  const firstName =
+    (surveyData?.fullName || metadata.full_name || metadata.name || "").split(" ")[0] || null;
 
   useEffect(() => {
     getProfile()
@@ -71,6 +79,9 @@ export default function Onboarding() {
     setStructuringDone(false);
     setStep(STEPS.STRUCTURING);
     setShowCeoMessage(true);
+    setShowGamePrompt(false);
+    if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
+    promptTimerRef.current = setTimeout(() => setShowGamePrompt(true), GAME_PROMPT_DELAY_MS);
     try {
       const result = await structureProfile(combined);
       if (surveyData?.fullName) {
@@ -83,6 +94,9 @@ export default function Onboarding() {
     } catch (err) {
       setError(friendlyError(err));
       setStep(STEPS.INTAKE);
+    } finally {
+      clearTimeout(promptTimerRef.current);
+      setShowGamePrompt(false);
     }
   }
 
@@ -165,6 +179,15 @@ export default function Onboarding() {
           </div>
         )}
 
+        {step === STEPS.STRUCTURING && showGamePrompt && !showGameModal && (
+          <button
+            onClick={() => setShowGameModal(true)}
+            className="cta-glow mt-4 flex items-center gap-2 self-start rounded-full border border-primary/30 bg-primary-soft px-4 py-2 text-sm font-medium text-primary"
+          >
+            <Gamepad2 size={16} /> Taking a bit — play a game while you wait?
+          </button>
+        )}
+
         {step === STEPS.REVIEW && structured && (
           <div className="flex flex-col gap-4">
             {error && <p className="text-xs text-danger">{error}</p>}
@@ -193,6 +216,12 @@ export default function Onboarding() {
       </div>
 
       <CeoMessageModal open={showCeoMessage} onClose={() => setShowCeoMessage(false)} firstName={firstName} />
+      <WaitGameModal
+        open={showGameModal}
+        onClose={() => setShowGameModal(false)}
+        ready={structuringDone}
+        onViewResults={() => setShowGameModal(false)}
+      />
     </div>
   );
 }
