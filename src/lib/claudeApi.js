@@ -1,11 +1,20 @@
+import { supabase } from "./supabaseClient";
+
 const WORKER_URL = import.meta.env.VITE_WORKER_URL ?? "http://localhost:8787";
 
 async function post(path, body) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   let res;
   try {
     res = await fetch(`${WORKER_URL}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
       body: JSON.stringify(body),
     });
   } catch (err) {
@@ -25,6 +34,9 @@ async function post(path, body) {
     // A handful of our own worker errors are genuinely actionable — surface those as-is.
     if (/too long and got cut off/i.test(detail)) {
       throw new Error(detail);
+    }
+    if (res.status === 401) {
+      throw new Error("Your session's expired — sign in again and retry.");
     }
     if (res.status === 429) {
       throw new Error("We're getting a lot of requests right now — give it a few seconds and try again.");

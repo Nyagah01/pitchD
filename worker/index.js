@@ -4,8 +4,25 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
+
+class AuthError extends Error {}
+
+async function requireUser(req, env) {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (!token) throw new AuthError("Missing Authorization header");
+
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) throw new AuthError("Invalid or expired session");
+  return res.json();
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -428,6 +445,8 @@ export default {
     const { pathname } = new URL(request.url);
 
     try {
+      await requireUser(request, env);
+
       switch (pathname) {
         case "/structure-profile":
           return await handleStructureProfile(request, env);
@@ -449,6 +468,9 @@ export default {
           return json({ error: "Not found" }, 404);
       }
     } catch (err) {
+      if (err instanceof AuthError) {
+        return json({ error: err.message }, 401);
+      }
       console.error(`[${pathname}]`, err.stack || err.message || err);
       return json({ error: err.message || String(err) }, 500);
     }

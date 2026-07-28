@@ -31,11 +31,18 @@ export async function clearJoboMessages() {
 }
 
 export async function sendJoboMessage(history, context) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   let res;
   try {
     res = await fetch(`${WORKER_URL}/jobo`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
       body: JSON.stringify({
         messages: history.map(({ role, content }) => ({ role, content })),
         context,
