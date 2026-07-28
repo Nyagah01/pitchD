@@ -281,6 +281,28 @@ async function handleEssay(req, env) {
   return json({ content: extractText(message) });
 }
 
+async function handleOtherHelp(req, env) {
+  const { query, company, role } = await req.json();
+
+  const system = `You are a quick-research assistant helping a job seeker with something specific that doesn't fit a standard prep category. Do a couple of targeted web searches to find genuinely relevant, current, real resources — not generic advice. Keep this cheap: a short direct answer plus a small handful of the most useful links, not an essay. Respond with ONLY valid JSON, no prose, no markdown fences:
+{ "summary": "1-3 sentence direct answer or context", "links": [{ "title": "short label", "url": "https://..." }, ...up to 5] }`;
+
+  const message = await callClaude(env, {
+    system,
+    messages: [
+      {
+        role: "user",
+        content: `${company ? `COMPANY: ${company}\n` : ""}${role ? `ROLE: ${role}\n` : ""}\nQUESTION:\n${query}`,
+      },
+    ],
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+    maxTokens: 1024,
+  });
+
+  assertNotTruncated(message);
+  return json(extractJson(extractText(message)));
+}
+
 // --- Reminder cron -----------------------------------------------------
 
 async function sendReminderEmail(env, { to, subject, body }) {
@@ -383,6 +405,8 @@ export default {
           return await handleResearchedPrep(request, env, { kind: "codility_prep" });
         case "/essay":
           return await handleEssay(request, env);
+        case "/other-help":
+          return await handleOtherHelp(request, env);
         case "/synthesize-lessons":
           return await handleSynthesizeLessons(request, env);
         default:

@@ -6,11 +6,13 @@ import CVPreview from "../components/generate/CVPreview";
 import CoverLetterPreview from "../components/generate/CoverLetterPreview";
 import CodilityPrep from "../components/generate/CodilityPrep";
 import EssayGenerator from "../components/generate/EssayGenerator";
+import OtherHelp from "../components/generate/OtherHelp";
 import { getFullProfile } from "../lib/profile";
 import {
   generateInterviewPrep,
   generateCodilityPrep,
   generateEssay,
+  generateOtherHelp,
 } from "../lib/claudeApi";
 import {
   getApplication,
@@ -23,7 +25,7 @@ import {
   saveGeneratedDoc,
 } from "../lib/applications";
 
-const TABS = ["CV", "Cover Letter", "Interview Prep", "Codility Prep", "Essay"];
+const TABS = ["CV", "Cover Letter", "Interview Prep", "Codility Prep", "Essay", "Other"];
 
 function latestByType(docs, type) {
   return docs.find((d) => d.type === type)?.content ?? "";
@@ -249,6 +251,17 @@ export default function ApplicationDetail() {
                   return content;
                 })
               }
+            />
+          )}
+          {tab === "Other" && (
+            <OtherHelp
+              existing={latestByType(docs, "other_help")}
+              onGenerate={async (query) => {
+                const result = await generateOtherHelp(query, application.company, application.role);
+                const content = JSON.stringify(result);
+                await saveGeneratedDoc(id, "other_help", content);
+                return content;
+              }}
             />
           )}
         </div>

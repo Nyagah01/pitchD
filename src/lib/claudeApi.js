@@ -52,5 +52,8 @@ export const generateCodilityPrep = (fullProfile, jobDescription, company, role)
 export const generateEssay = (fullProfile, prompt, jobDescription) =>
   post("/essay", { profile: fullProfile, prompt, jobDescription });
 
+export const generateOtherHelp = (query, company, role) =>
+  post("/other-help", { query, company, role });
+
 export const synthesizeLessons = (feedbackEntries) =>
   post("/synthesize-lessons", { feedbackEntries });
