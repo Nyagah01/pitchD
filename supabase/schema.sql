@@ -164,3 +164,21 @@ begin
     );
   end loop;
 end $$;
+
+-- Portfolio: a snapshot of a user's profile at generation time, shown publicly
+-- at /p/:slug — no auth needed to view, unlike every other table above.
+create table portfolio (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
+  slug text not null unique,
+  data jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create trigger portfolio_updated_at before update on portfolio
+for each row execute function set_updated_at();
+
+alter table portfolio enable row level security;
+create policy "anyone can view a portfolio by slug" on portfolio for select using (true);
+create policy "owner manages their portfolio" on portfolio for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

@@ -4,6 +4,7 @@ import EditableList from "../components/profile/EditableList";
 import SkillsGrid from "../components/profile/SkillsGrid";
 import LessonsLearned from "../components/profile/LessonsLearned";
 import UpdateFromMasterFile from "../components/profile/UpdateFromMasterFile";
+import PortfolioGenerator from "../components/profile/PortfolioGenerator";
 import {
   getFullProfile,
   upsertProfile,
@@ -196,6 +197,8 @@ export default function Profile() {
         lessons={data.profile?.lessons_learned ?? []}
         onChange={(lessons) => upsertProfile({ lessons_learned: lessons }).then(reload)}
       />
+
+      <PortfolioGenerator />
     </div>
   );
 }
