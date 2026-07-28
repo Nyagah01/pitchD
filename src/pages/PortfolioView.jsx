@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Mail, Phone, MapPin, Link2, Globe, ArrowUpRight, Code2 } from "lucide-react";
 import { getPortfolioBySlug } from "../lib/portfolio";
+import NavThemeSwitcher from "../components/common/NavThemeSwitcher";
 
 function normalizeUrl(url) {
   if (!url) return null;
@@ -89,6 +90,9 @@ export default function PortfolioView() {
           backgroundImage: "radial-gradient(circle at 20% 20%, white 0%, transparent 40%), radial-gradient(circle at 85% 60%, white 0%, transparent 35%)",
         }} />
         <div className="relative mx-auto max-w-2xl">
+          <div className="absolute right-0 top-0">
+            <NavThemeSwitcher variant="light" />
+          </div>
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 font-header text-xl font-extrabold backdrop-blur-sm">
             {initials(profile.full_name) || "?"}
           </div>
@@ -121,7 +125,7 @@ export default function PortfolioView() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-6">
+      <div className="relative z-10 mx-auto max-w-2xl px-6">
         <div className="glass-card -mt-10 rounded-3xl p-6 shadow-xl sm:-mt-14 sm:p-8">
           {profile.summary && <p className="text-sm leading-relaxed text-text sm:text-base">{profile.summary}</p>}
 
