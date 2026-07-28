@@ -11,6 +11,8 @@ const INTRO = {
     "Hey, I'm Jobo. Ask me to look into a company, vent about the job hunt, or ask for interview tips — I'm here for all of it.",
 };
 
+const SEEN_KEY = "pitchd-jobo-seen";
+
 export default function JoboWidget() {
   const { id: applicationId } = useParams();
   const [open, setOpen] = useState(false);
@@ -20,7 +22,13 @@ export default function JoboWidget() {
   const [error, setError] = useState("");
   const [context, setContext] = useState(null);
   const [savedOfferIndex, setSavedOfferIndex] = useState(null);
+  const [showHint, setShowHint] = useState(() => !localStorage.getItem(SEEN_KEY));
   const scrollRef = useRef(null);
+
+  function markSeen() {
+    localStorage.setItem(SEEN_KEY, "1");
+    setShowHint(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -74,12 +82,30 @@ export default function JoboWidget() {
 
   return (
     <>
+      {showHint && !open && (
+        <div className="fixed bottom-[9.5rem] right-4 z-40 flex max-w-[13rem] items-start gap-2 rounded-2xl border border-border bg-surface p-3 shadow-lg sm:bottom-24 sm:right-6">
+          <p className="text-xs leading-relaxed text-text">
+            👋 Meet <span className="font-semibold text-primary">Jobo</span> — company research, interview tips, and a buddy for the hunt.
+          </p>
+          <button onClick={markSeen} className="shrink-0 text-muted hover:text-text" aria-label="Dismiss">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => !o);
+          markSeen();
+        }}
         className="cta-glow fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg sm:bottom-6 sm:right-6"
         aria-label={open ? "Close Jobo" : "Open Jobo"}
       >
         {open ? <X size={22} /> : <Bot size={24} />}
+        {showHint && !open && (
+          <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 animate-ping rounded-full bg-accent" />
+        )}
+        {showHint && !open && <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full bg-accent" />}
       </button>
 
       {open && (
