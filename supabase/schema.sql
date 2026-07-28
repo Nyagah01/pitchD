@@ -130,6 +130,15 @@ create table generated_docs (
   created_at timestamptz not null default now()
 );
 
+-- Jobo: the floating chat buddy. One running conversation per user.
+create table jobo_messages (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null,             -- 'user' | 'assistant'
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
 create or replace function set_updated_at()
 returns trigger as $$
 begin new.updated_at = now(); return new; end;
@@ -151,12 +160,13 @@ alter table projects enable row level security;
 alter table applications enable row level security;
 alter table contacts enable row level security;
 alter table generated_docs enable row level security;
+alter table jobo_messages enable row level security;
 
 do $$
 declare
   t text;
 begin
-  foreach t in array array['profile', 'experience', 'education', 'skills', 'certifications', 'projects', 'applications', 'contacts', 'generated_docs']
+  foreach t in array array['profile', 'experience', 'education', 'skills', 'certifications', 'projects', 'applications', 'contacts', 'generated_docs', 'jobo_messages']
   loop
     execute format(
       'create policy "own rows" on %I for all using (auth.uid() = user_id) with check (auth.uid() = user_id);',
