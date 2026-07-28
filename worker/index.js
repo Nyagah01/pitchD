@@ -8,6 +8,7 @@ const CORS_HEADERS = {
 };
 
 class AuthError extends Error {}
+class QuotaError extends Error {}
 
 async function requireUser(req, env) {
   const authHeader = req.headers.get("Authorization") || "";
@@ -22,6 +23,33 @@ async function requireUser(req, env) {
   });
   if (!res.ok) throw new AuthError("Invalid or expired session");
   return res.json();
+}
+
+const DAILY_LIMIT = 5;
+const QUOTA_MESSAGES = {
+  generation: "You've reached today's limit of 5 job application generations. Come back tomorrow for 5 more.",
+  prep: "You've reached today's limit of 5 interview/codility prep requests. Come back tomorrow for 5 more.",
+};
+
+function startOfTodayUTC() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+}
+
+// kind: "generation" (CV + cover letter) or "prep" (interview prep + codility prep, shared cap)
+async function checkAndRecordUsage(env, userId, kind) {
+  const since = startOfTodayUTC();
+  const rows = await supabaseRequest(
+    env,
+    `/rest/v1/usage_events?select=id&user_id=eq.${userId}&kind=eq.${kind}&created_at=gte.${since}`
+  );
+  if (rows.length >= DAILY_LIMIT) {
+    throw new QuotaError(QUOTA_MESSAGES[kind]);
+  }
+  await supabaseRequest(env, `/rest/v1/usage_events`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, kind }),
+  });
 }
 
 function json(data, status = 200) {
@@ -445,16 +473,19 @@ export default {
     const { pathname } = new URL(request.url);
 
     try {
-      await requireUser(request, env);
+      const user = await requireUser(request, env);
 
       switch (pathname) {
         case "/structure-profile":
           return await handleStructureProfile(request, env);
         case "/generate-application":
+          await checkAndRecordUsage(env, user.id, "generation");
           return await handleGenerateApplication(request, env);
         case "/interview-prep":
+          await checkAndRecordUsage(env, user.id, "prep");
           return await handleResearchedPrep(request, env, { kind: "interview_prep" });
         case "/codility-prep":
+          await checkAndRecordUsage(env, user.id, "prep");
           return await handleResearchedPrep(request, env, { kind: "codility_prep" });
         case "/essay":
           return await handleEssay(request, env);
@@ -470,6 +501,9 @@ export default {
     } catch (err) {
       if (err instanceof AuthError) {
         return json({ error: err.message }, 401);
+      }
+      if (err instanceof QuotaError) {
+        return json({ error: err.message, code: "DAILY_LIMIT_REACHED" }, 429);
       }
       console.error(`[${pathname}]`, err.stack || err.message || err);
       return json({ error: err.message || String(err) }, 500);

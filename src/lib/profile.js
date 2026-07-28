@@ -80,19 +80,19 @@ export async function getFullProfile() {
   return { profile, experience, education, skills, certifications, projects };
 }
 
+// Projects and certifications don't count toward this score — they instead
+// earn a bronze/silver/gold tier via computeCredentialTier below.
 const WEIGHTS = {
-  basicInfo: 10,
+  basicInfo: 15,
   headline: 5,
-  summary: 10,
-  experience: 20,
-  education: 10,
-  skills: 10,
-  projects: 15,
-  certifications: 10,
+  summary: 15,
+  experience: 25,
+  education: 15,
+  skills: 15,
   photo: 10,
 };
 
-export function computeProfileStrength({ profile, experience, education, skills, projects, certifications }) {
+export function computeProfileStrength({ profile, experience, education, skills }) {
   let score = 0;
   const gaps = [];
 
@@ -115,14 +115,23 @@ export function computeProfileStrength({ profile, experience, education, skills,
   if (skills?.length >= 5) score += WEIGHTS.skills;
   else gaps.push("5+ skills");
 
-  if (projects?.length >= 1) score += WEIGHTS.projects;
-  else gaps.push("a project");
-
-  if (certifications?.length >= 1) score += WEIGHTS.certifications;
-  else gaps.push("a certification");
-
   if (profile?.photo_url) score += WEIGHTS.photo;
   else gaps.push("a profile photo");
 
   return { score, gaps };
+}
+
+const TIER_THRESHOLDS = [
+  { tier: "gold", min: 6 },
+  { tier: "silver", min: 3 },
+  { tier: "bronze", min: 1 },
+];
+
+// Projects + certifications combined count toward a credential tier instead
+// of the completeness score — recognizes depth without gating the core score
+// on things not every applicant has yet.
+export function computeCredentialTier({ projects, certifications }) {
+  const count = (projects?.length ?? 0) + (certifications?.length ?? 0);
+  const match = TIER_THRESHOLDS.find((t) => count >= t.min);
+  return { tier: match?.tier ?? null, count };
 }

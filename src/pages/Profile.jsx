@@ -1,20 +1,81 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { UploadCloud } from "lucide-react";
 import ProfileStrength from "../components/profile/ProfileStrength";
 import EditableList from "../components/profile/EditableList";
 import SkillsGrid from "../components/profile/SkillsGrid";
 import LessonsLearned from "../components/profile/LessonsLearned";
 import UpdateFromMasterFile from "../components/profile/UpdateFromMasterFile";
 import PortfolioGenerator from "../components/profile/PortfolioGenerator";
+import CredentialTierBadge from "../components/profile/CredentialTierBadge";
 import {
   getFullProfile,
   upsertProfile,
   computeProfileStrength,
+  computeCredentialTier,
   experienceApi,
   educationApi,
   skillsApi,
   certificationsApi,
   projectsApi,
 } from "../lib/profile";
+import { uploadProfilePhoto } from "../lib/uploads";
+import { friendlyError } from "../lib/friendlyError";
+
+function initials(name) {
+  return (name || "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0]?.toUpperCase())
+    .join("");
+}
+
+function PhotoUpload({ photoUrl, fullName, onUploaded }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const url = await uploadProfilePhoto(file);
+      await onUploaded(url);
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-primary-soft font-header text-lg font-extrabold text-primary">
+        {photoUrl ? (
+          <img src={photoUrl} alt="Profile" className="h-full w-full object-cover" />
+        ) : (
+          initials(fullName) || "?"
+        )}
+      </div>
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-text transition-colors hover:border-primary/40 disabled:opacity-60"
+        >
+          <UploadCloud size={13} />
+          {uploading ? "Uploading…" : photoUrl ? "Replace photo" : "Upload photo"}
+        </button>
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        {error && <p className="text-xs text-danger">{error}</p>}
+      </div>
+    </div>
+  );
+}
 
 export default function Profile() {
   const [data, setData] = useState(null);
@@ -37,6 +98,7 @@ export default function Profile() {
   }
 
   const { score, gaps } = computeProfileStrength(data);
+  const { tier, count: credentialCount } = computeCredentialTier(data);
 
   async function saveBasics() {
     setSavingBasics(true);
@@ -59,13 +121,23 @@ export default function Profile() {
 
       <ProfileStrength score={score} gaps={gaps} />
 
+      <CredentialTierBadge tier={tier} count={credentialCount} />
+
       <PortfolioGenerator />
 
       <UpdateFromMasterFile currentProfile={data.profile} onMerged={reload} />
 
       <section className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="mb-3 text-sm font-semibold text-text">Basics</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <PhotoUpload
+          photoUrl={basics.photo_url}
+          fullName={basics.full_name}
+          onUploaded={async (url) => {
+            await upsertProfile({ photo_url: url });
+            reload();
+          }}
+        />
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
             ["full_name", "Full name"],
             ["headline", "Headline"],
@@ -114,7 +186,7 @@ export default function Profile() {
           { key: "company", label: "Company" },
           { key: "role", label: "Role" },
           { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date" },
+          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently working here" },
           { key: "description", label: "Description", textarea: true, span: true },
           { key: "achievements", label: "Achievements", span: true, isList: true },
           { key: "skills_used", label: "Skills used", span: true, isList: true },
@@ -140,7 +212,7 @@ export default function Profile() {
           { key: "field", label: "Field" },
           { key: "grade", label: "Grade" },
           { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date" },
+          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently studying here" },
         ]}
         renderSummary={(item) => (
           <div>
@@ -180,17 +252,28 @@ export default function Profile() {
         items={data.certifications}
         api={certificationsApi}
         onChanged={reload}
-        emptyItem={{ name: "", issuer: "", date_issued: "", credential_url: "" }}
+        emptyItem={{ name: "", issuer: "", date_issued: "", credential_url: "", attachment_url: "" }}
         fields={[
           { key: "name", label: "Name" },
           { key: "issuer", label: "Issuer" },
           { key: "date_issued", label: "Date issued", type: "date" },
           { key: "credential_url", label: "Credential URL (optional)" },
+          { key: "attachment_url", label: "Certificate file (PDF or photo, optional)", type: "file", span: true },
         ]}
         renderSummary={(item) => (
           <div>
             <p className="font-semibold text-text">{item.name}</p>
             <p className="text-xs text-muted">{item.issuer}</p>
+            {item.attachment_url && (
+              <a
+                href={item.attachment_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-block text-xs text-primary hover:underline"
+              >
+                View attached file
+              </a>
+            )}
           </div>
         )}
       />

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Gamepad2 } from "lucide-react";
 import JDInput from "../components/generate/JDInput";
@@ -12,6 +12,7 @@ import { getFullProfile } from "../lib/profile";
 import { generateApplication } from "../lib/claudeApi";
 import { createApplication, saveGeneratedDoc } from "../lib/applications";
 import { friendlyError } from "../lib/friendlyError";
+import { getTodayUsage, DAILY_USAGE_LIMIT } from "../lib/usage";
 
 const SCRIPT = [
   "Reading profile...",
@@ -40,8 +41,15 @@ export default function Apply() {
   const [saving, setSaving] = useState(false);
   const [showGamePrompt, setShowGamePrompt] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
+  const [generationsRemaining, setGenerationsRemaining] = useState(null);
 
   const promptTimerRef = useRef(null);
+
+  useEffect(() => {
+    getTodayUsage()
+      .then((usage) => setGenerationsRemaining(usage.generationRemaining))
+      .catch(() => {});
+  }, []);
 
   async function handleGenerate() {
     if (!jd.trim() || !company.trim() || !role.trim()) {
@@ -79,6 +87,7 @@ export default function Apply() {
       ]);
       await sleep(300);
       setResult({ ...response, profile });
+      setGenerationsRemaining((n) => (n == null ? n : Math.max(0, n - 1)));
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -132,13 +141,22 @@ export default function Apply() {
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      <button
-        onClick={handleGenerate}
-        disabled={running}
-        className="cta-glow self-start rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-      >
-        {running ? "Generating…" : "Generate application"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleGenerate}
+          disabled={running || generationsRemaining === 0}
+          className="cta-glow self-start rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {running ? "Generating…" : "Generate application"}
+        </button>
+        {generationsRemaining != null && (
+          <span className="text-xs text-muted">
+            {generationsRemaining > 0
+              ? `${generationsRemaining} of ${DAILY_USAGE_LIMIT} generations left today`
+              : "Daily limit reached — resets at midnight UTC"}
+          </span>
+        )}
+      </div>
 
       {(running || lines.length > 0) && <GenerationLog lines={lines} active={running} />}
 

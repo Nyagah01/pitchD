@@ -24,8 +24,11 @@ async function post(path, body) {
 
   if (!res.ok) {
     let detail = "";
+    let code = "";
     try {
-      detail = (await res.json()).error ?? "";
+      const body = await res.json();
+      detail = body.error ?? "";
+      code = body.code ?? "";
     } catch {
       detail = await res.text().catch(() => "");
     }
@@ -33,6 +36,9 @@ async function post(path, body) {
 
     // A handful of our own worker errors are genuinely actionable — surface those as-is.
     if (/too long and got cut off/i.test(detail)) {
+      throw new Error(detail);
+    }
+    if (code === "DAILY_LIMIT_REACHED") {
       throw new Error(detail);
     }
     if (res.status === 401) {

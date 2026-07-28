@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Send, UserRound, KanbanSquare } from "lucide-react";
 import ProfileStrength from "../components/profile/ProfileStrength";
+import CredentialTierBadge from "../components/profile/CredentialTierBadge";
 import PortfolioBanner from "../components/profile/PortfolioBanner";
 import UpcomingPanel from "../components/applications/UpcomingPanel";
 import MomentumPanel from "../components/applications/MomentumPanel";
-import { getFullProfile, computeProfileStrength, upsertProfile } from "../lib/profile";
+import { getFullProfile, computeProfileStrength, computeCredentialTier, upsertProfile } from "../lib/profile";
 import { listApplications, upcomingReminders } from "../lib/applications";
 
 export default function Dashboard() {
@@ -22,6 +23,7 @@ export default function Dashboard() {
   }, [reload]);
 
   const strength = profileData ? computeProfileStrength(profileData) : null;
+  const credential = profileData ? computeCredentialTier(profileData) : null;
   const reminders = applications ? upcomingReminders(applications) : [];
 
   async function handleGoalChange(dailyGoal) {
@@ -41,6 +43,8 @@ export default function Dashboard() {
       <PortfolioBanner />
 
       {strength && <ProfileStrength score={strength.score} gaps={strength.gaps} />}
+
+      {credential && <CredentialTierBadge tier={credential.tier} count={credential.count} />}
 
       {applications !== null && (
         <MomentumPanel

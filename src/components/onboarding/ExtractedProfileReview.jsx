@@ -6,23 +6,42 @@ function isValidDateInput(v) {
   return !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
-function Field({ label, value, onChange, textarea, type }) {
+function Field({ label, value, onChange, textarea, type, allowPresent, presentLabel = "Currently ongoing (no end date)" }) {
   const Comp = textarea ? "textarea" : "input";
   // AI-extracted dates ("2021", "Jun 2020") rarely match the yyyy-mm-dd a date
   // input requires — showing them in a text box would silently fail to save
   // (Postgres date column) with no clue which field was wrong. Blank + a real
   // calendar picker beats that.
   const safeValue = type === "date" && !isValidDateInput(value) ? "" : (value ?? "");
+  const [present, setPresent] = useState(allowPresent ? !safeValue : false);
+
+  function togglePresent(checked) {
+    setPresent(checked);
+    if (checked) onChange(null);
+  }
+
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <Comp
         type={type}
-        value={safeValue}
+        value={present ? "" : safeValue}
+        disabled={present}
         onChange={(e) => onChange(e.target.value)}
         rows={textarea ? 2 : undefined}
-        className="w-full min-w-0 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
+        className="w-full min-w-0 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
       />
+      {allowPresent && (
+        <span className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+          <input
+            type="checkbox"
+            checked={present}
+            onChange={(e) => togglePresent(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-border accent-primary"
+          />
+          {presentLabel}
+        </span>
+      )}
     </label>
   );
 }
@@ -80,7 +99,7 @@ function ArraySection({ title, items, setItems, fields, emptyItem }) {
               <X size={15} />
             </button>
             <div className="grid grid-cols-1 gap-3 pr-6 sm:grid-cols-2">
-              {fields.map(({ key, label, textarea, span, isList, type }) => (
+              {fields.map(({ key, label, textarea, span, isList, type, allowPresent, presentLabel }) => (
                 <div key={key} className={span ? "col-span-2" : ""}>
                   {isList ? (
                     <ListField
@@ -95,6 +114,8 @@ function ArraySection({ title, items, setItems, fields, emptyItem }) {
                       value={item[key]}
                       textarea={textarea}
                       type={type}
+                      allowPresent={allowPresent}
+                      presentLabel={presentLabel}
                       onChange={(v) => updateItem(idx, key, v)}
                     />
                   )}
@@ -152,7 +173,7 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
           { key: "company", label: "Company" },
           { key: "role", label: "Role" },
           { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date" },
+          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently working here" },
           { key: "description", label: "Description", textarea: true, span: true },
           { key: "achievements", label: "Achievements", span: true, isList: true },
           { key: "skills_used", label: "Skills used", span: true, isList: true },
@@ -170,7 +191,7 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
           { key: "field", label: "Field" },
           { key: "grade", label: "Grade" },
           { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date" },
+          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently studying here" },
         ]}
       />
 
