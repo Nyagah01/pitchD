@@ -44,6 +44,7 @@ export default function Apply() {
   const [generationsRemaining, setGenerationsRemaining] = useState(null);
 
   const promptTimerRef = useRef(null);
+  const cancelLogRef = useRef(false);
 
   useEffect(() => {
     getTodayUsage()
@@ -65,8 +66,14 @@ export default function Apply() {
     if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
     promptTimerRef.current = setTimeout(() => setShowGamePrompt(true), GAME_PROMPT_DELAY_MS);
 
+    cancelLogRef.current = false;
+    // Detached from the real API call so the scripted lines animate in even
+    // while the request is in flight — but it must stop pushing lines the
+    // moment the real call fails, or it can print stale "progress" after the
+    // error banner is already showing.
     const logPromise = (async () => {
       for (const line of SCRIPT.slice(0, 2)) {
+        if (cancelLogRef.current) return;
         setLines((prev) => [...prev, line]);
         await sleep(500);
       }
@@ -89,6 +96,7 @@ export default function Apply() {
       setResult({ ...response, profile });
       setGenerationsRemaining((n) => (n == null ? n : Math.max(0, n - 1)));
     } catch (err) {
+      cancelLogRef.current = true;
       setError(friendlyError(err));
     } finally {
       setRunning(false);
@@ -144,7 +152,7 @@ export default function Apply() {
       <div className="flex items-center gap-3">
         <button
           onClick={handleGenerate}
-          disabled={running || generationsRemaining === 0}
+          disabled={running || saving || generationsRemaining === 0}
           className="cta-glow self-start rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
         >
           {running ? "Generating…" : "Generate application"}

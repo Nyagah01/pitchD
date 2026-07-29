@@ -68,6 +68,14 @@ export const skillsApi = makeCrud("skills");
 export const certificationsApi = makeCrud("certifications");
 export const projectsApi = makeCrud("projects");
 
+// Wipes existing rows in the child profile tables before onboarding (re)writes
+// them, so a retry after a partial save failure re-inserts cleanly instead of
+// duplicating whatever succeeded the first time.
+export async function clearProfileTables() {
+  const userId = await currentUserId();
+  await Promise.all(tables.map((table) => supabase.from(table).delete().eq("user_id", userId)));
+}
+
 export async function getFullProfile() {
   const [profile, experience, education, skills, certifications, projects] = await Promise.all([
     getProfile(),

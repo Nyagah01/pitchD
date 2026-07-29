@@ -16,6 +16,19 @@ function safeFilename(name) {
 // dashes, and especially the Unicode bullet (•) have been observed rendering as
 // garbage in some viewers. Everything going into the PDF is normalized to safe,
 // universally-supported ASCII so this can't happen regardless of viewer.
+//
+// Accented Latin letters (José, García, Müller, ...) are transliterated to their
+// closest ASCII base letter via Unicode decomposition rather than being deleted —
+// dropping them outright silently mangles real names in the exported document.
+// Letters that aren't a base letter + combining accent under Unicode NFD
+// (so decomposition below won't catch them) but still have an obvious ASCII
+// stand-in — otherwise "Søren" or "Straße" would still lose letters.
+const SPECIAL_LATIN = {
+  ø: "o", Ø: "O", æ: "ae", Æ: "AE", œ: "oe", Œ: "OE", ß: "ss",
+  ł: "l", Ł: "L", đ: "d", Đ: "D", þ: "th", Þ: "Th", ð: "d", Ð: "D",
+};
+const SPECIAL_LATIN_RE = new RegExp(`[${Object.keys(SPECIAL_LATIN).join("")}]`, "g");
+
 function sanitizeForPdf(text) {
   return text
     .replace(/\r\n?/g, "\n")
@@ -24,6 +37,9 @@ function sanitizeForPdf(text) {
     .replace(/[“”]/g, '"')
     .replace(/•/g, "-")
     .replace(/…/g, "...")
+    .replace(SPECIAL_LATIN_RE, (ch) => SPECIAL_LATIN[ch])
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
     .replace(/[^\x20-\x7E\n\t]/g, "");
 }
 

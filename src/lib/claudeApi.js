@@ -1,6 +1,15 @@
 import { supabase } from "./supabaseClient";
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL ?? "http://localhost:8787";
+const WORKER_URL = import.meta.env.VITE_WORKER_URL;
+if (!WORKER_URL) {
+  console.warn(
+    "VITE_WORKER_URL is not set — AI generation calls will hit http://localhost:8787, which won't exist in a deployed build."
+  );
+}
+
+// Generous — a full application generation can chain several sequential
+// Claude calls (draft, critique, up to 2 revise+critique passes) server-side.
+const REQUEST_TIMEOUT_MS = 120000;
 
 async function post(path, body) {
   const {
@@ -9,13 +18,14 @@ async function post(path, body) {
 
   let res;
   try {
-    res = await fetch(`${WORKER_URL}${path}`, {
+    res = await fetch(`${WORKER_URL ?? "http://localhost:8787"}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
     console.error(`Worker ${path} unreachable:`, err);

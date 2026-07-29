@@ -1,8 +1,15 @@
 import { Link } from "react-router-dom";
 import { AlarmClock, Clock } from "lucide-react";
 
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+// Diffs calendar dates (local midnight to local midnight), not raw elapsed
+// hours — otherwise something 20 hours away can read "tomorrow" while
+// something 1 hour away right after midnight still reads "today" or worse.
 function relativeDay(date) {
-  const days = Math.round((date - new Date()) / (1000 * 60 * 60 * 24));
+  const days = Math.round((startOfDay(date) - startOfDay(new Date())) / (1000 * 60 * 60 * 24));
   if (days <= 0) return "today";
   if (days === 1) return "tomorrow";
   return `in ${days} days`;
