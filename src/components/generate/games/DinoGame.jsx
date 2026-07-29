@@ -102,7 +102,7 @@ export default function DinoGame() {
         {score > 50 ? " · speeding up" : ""}
       </p>
       <div
-        onClick={jump}
+        onPointerDown={jump}
         className="relative touch-none select-none cursor-pointer overflow-hidden rounded-xl border border-border bg-[#f7f7f7]"
         style={{ width: WIDTH, height: HEIGHT }}
       >

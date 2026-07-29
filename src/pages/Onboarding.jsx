@@ -9,20 +9,30 @@ import TaskChecklist from "../components/generate/TaskChecklist";
 import CeoMessageModal from "../components/onboarding/CeoMessageModal";
 import WaitGameModal from "../components/generate/WaitGameModal";
 import { structureProfile } from "../lib/claudeApi";
-import { getProfile, upsertProfile, experienceApi, educationApi, skillsApi, certificationsApi, projectsApi } from "../lib/profile";
+import {
+  getProfile,
+  upsertProfile,
+  clearProfileTables,
+  experienceApi,
+  educationApi,
+  skillsApi,
+  certificationsApi,
+  projectsApi,
+} from "../lib/profile";
 import { friendlyError } from "../lib/friendlyError";
 import { useAuth } from "../lib/AuthContext";
 
 const STEPS = { SURVEY: "survey", INTAKE: "intake", STRUCTURING: "structuring", REVIEW: "review", SAVING: "saving" };
 
 function isValidDateInput(v) {
-  return !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+  return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
 // AI-extracted dates the user never touched can still be unparseable ("Jun
 // 2020") even though the review form displayed them as blank — save them as
-// blank too, rather than letting the raw string hit the database and fail
-// with no indication of which row caused it.
+// null too, rather than letting the raw string (or an empty string, which
+// Postgres' `date` type also rejects — it needs null) hit the database and
+// fail with no indication of which row caused it.
 function sanitizeDates(row, keys) {
   const clean = { ...row };
   for (const k of keys) {
@@ -66,6 +76,7 @@ export default function Onboarding() {
   const [showGamePrompt, setShowGamePrompt] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
   const promptTimerRef = useRef(null);
+  const errorRef = useRef(null);
 
   const metadata = session?.user?.user_metadata ?? {};
   const firstName =
@@ -79,6 +90,10 @@ export default function Onboarding() {
       })
       .catch(() => setChecking(false));
   }, [navigate]);
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   function handleSurveyComplete(data) {
     setSurveyData(data);
@@ -117,19 +132,20 @@ export default function Onboarding() {
   }
 
   async function handleSave(reviewed) {
+    // ExtractedProfileReview unmounts while STEPS.SAVING is shown, so if the
+    // save fails and we drop back to REVIEW it remounts fresh from
+    // `structured` — capture the user's edits here first so a retry starts
+    // from what they actually entered, not the original AI extraction.
+    setStructured(reviewed);
     setSaving(true);
     setSavingDone(false);
     setError("");
     setStep(STEPS.SAVING);
     try {
       const rawIntake = [dump, resumeText, ...(reviewed.uncategorized ?? [])].filter(Boolean).join("\n\n---\n\n");
-      await upsertProfile({
-        ...reviewed.profile,
-        raw_intake: rawIntake,
-        experience_level: surveyData?.experienceLevel || null,
-        referral_source: surveyData?.referralSource || null,
-        goals: surveyData?.goals ?? [],
-      });
+      // Clear first so a retry after a previous partial failure doesn't
+      // duplicate whatever rows already made it in.
+      await clearProfileTables();
       await Promise.all([
         ...reviewed.experience.map((row, i) =>
           experienceApi.create({ ...sanitizeDates(row, ["start_date", "end_date"]), order_index: i })
@@ -139,6 +155,16 @@ export default function Onboarding() {
         ...reviewed.certifications.map((row) => certificationsApi.create(sanitizeDates(row, ["date_issued"]))),
         ...reviewed.projects.map((row) => projectsApi.create(row)),
       ]);
+      // full_name is what marks a profile "complete" elsewhere (RequireProfile,
+      // the onboarding redirect check) — write it last so a failure above
+      // leaves the user retryable instead of permanently "done" with missing data.
+      await upsertProfile({
+        ...reviewed.profile,
+        raw_intake: rawIntake,
+        experience_level: surveyData?.experienceLevel || null,
+        referral_source: surveyData?.referralSource || null,
+        goals: surveyData?.goals ?? [],
+      });
       setSavingDone(true);
       await sleep(650);
       navigate("/dashboard");
@@ -208,7 +234,11 @@ export default function Onboarding() {
 
         {step === STEPS.REVIEW && structured && (
           <div className="flex flex-col gap-4">
-            {error && <p className="text-xs text-danger">{error}</p>}
+            {error && (
+              <p ref={errorRef} className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">
+                {error}
+              </p>
+            )}
             <ExtractedProfileReview
               data={structured}
               onBack={() => setStep(STEPS.INTAKE)}

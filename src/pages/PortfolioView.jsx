@@ -93,9 +93,17 @@ export default function PortfolioView() {
           <div className="absolute right-0 top-0">
             <NavThemeSwitcher variant="light" />
           </div>
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 font-header text-xl font-extrabold backdrop-blur-sm">
-            {initials(profile.full_name) || "?"}
-          </div>
+          {profile.photo_url ? (
+            <img
+              src={profile.photo_url}
+              alt={profile.full_name || "Profile photo"}
+              className="h-16 w-16 rounded-2xl object-cover shadow-md"
+            />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 font-header text-xl font-extrabold backdrop-blur-sm">
+              {initials(profile.full_name) || "?"}
+            </div>
+          )}
           <h1 className="mt-6 font-header text-4xl font-extrabold tracking-tight sm:text-5xl">
             {profile.full_name || "Portfolio"}
           </h1>
@@ -126,7 +134,7 @@ export default function PortfolioView() {
       </header>
 
       <div className="relative z-10 mx-auto max-w-2xl px-6">
-        <div className="glass-card -mt-10 rounded-3xl p-6 shadow-xl sm:-mt-14 sm:p-8">
+        <div className="glass-card mt-6 rounded-3xl p-6 shadow-xl sm:mt-8 sm:p-8">
           {profile.summary && <p className="text-sm leading-relaxed text-text sm:text-base">{profile.summary}</p>}
 
           <div className="mt-8 flex flex-col gap-10">
