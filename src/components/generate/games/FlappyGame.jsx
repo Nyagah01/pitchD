@@ -103,7 +103,7 @@ export default function FlappyGame() {
         {score > 50 ? " · getting tighter" : ""}
       </p>
       <div
-        onClick={flap}
+        onPointerDown={flap}
         className="relative touch-none select-none cursor-pointer overflow-hidden rounded-xl border border-border"
         style={{ width: WIDTH, height: HEIGHT, background: "linear-gradient(#bee7ff, #eaf8ff)" }}
       >

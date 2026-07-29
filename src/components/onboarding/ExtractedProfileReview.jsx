@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Plus } from "lucide-react";
 import TagInput from "../common/TagInput";
 
@@ -11,8 +11,10 @@ function Field({ label, value, onChange, textarea, type, allowPresent, presentLa
   // AI-extracted dates ("2021", "Jun 2020") rarely match the yyyy-mm-dd a date
   // input requires — showing them in a text box would silently fail to save
   // (Postgres date column) with no clue which field was wrong. Blank + a real
-  // calendar picker beats that.
-  const safeValue = type === "date" && !isValidDateInput(value) ? "" : (value ?? "");
+  // calendar picker beats that — but flag it in red so it's clear something
+  // was dropped, instead of just quietly looking empty.
+  const hasDateError = type === "date" && !!value && !isValidDateInput(value);
+  const safeValue = hasDateError ? "" : (value ?? "");
   const [present, setPresent] = useState(allowPresent ? !safeValue : false);
 
   function togglePresent(checked) {
@@ -21,7 +23,7 @@ function Field({ label, value, onChange, textarea, type, allowPresent, presentLa
   }
 
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-1" data-date-error={hasDateError || undefined}>
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <Comp
         type={type}
@@ -29,8 +31,15 @@ function Field({ label, value, onChange, textarea, type, allowPresent, presentLa
         disabled={present}
         onChange={(e) => onChange(e.target.value)}
         rows={textarea ? 2 : undefined}
-        className="w-full min-w-0 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+        className={`w-full min-w-0 rounded-lg border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 ${
+          hasDateError ? "border-danger" : "border-border"
+        }`}
       />
+      {hasDateError && (
+        <span className="text-[11px] font-medium text-danger">
+          Couldn't read this as a date — pick one if you have it, or leave it blank.
+        </span>
+      )}
       {allowPresent && (
         <span className="mt-1 flex items-center gap-1.5 text-xs text-muted">
           <input
@@ -145,6 +154,13 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
     setLastName(last);
     setProfile((p) => ({ ...p, full_name: `${first} ${last}`.trim() }));
   }
+
+  // Jump straight to the first date the AI extracted but couldn't parse, so
+  // it isn't just a silently-blank field the user has to hunt for.
+  useEffect(() => {
+    const el = document.querySelector('[data-date-error="true"]');
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
 
   return (
     <div className="flex flex-col gap-8">
