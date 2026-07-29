@@ -76,6 +76,13 @@ export default function Sidebar() {
           <div className="fixed inset-0 z-30 sm:hidden" onClick={() => setMenuOpen(false)} />
           <div className="fixed inset-x-0 top-[57px] z-40 border-b border-border bg-surface px-4 py-3 shadow-lg sm:hidden">
             <div className="flex flex-col gap-1">
+              {links.map(({ to, label, icon: Icon, end }) => (
+                <NavLink key={to} to={to} end={end} className={desktopLinkClass} onClick={() => setMenuOpen(false)}>
+                  <Icon size={17} strokeWidth={2} />
+                  {label}
+                </NavLink>
+              ))}
+              <div className="my-1 border-t border-border" />
               <ThemeSwitcher dropUp={false} />
               <button
                 onClick={() => signOut()}

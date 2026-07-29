@@ -274,16 +274,28 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
               </div>
             </div>
           ) : (
-            <div key={item.id} className="group relative rounded-xl border border-border bg-surface p-4">
-              <div className="absolute right-3 top-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                <button onClick={() => startEdit(item)} className="text-muted hover:text-primary">
-                  <Pencil size={14} />
+            <div key={item.id} className="relative rounded-xl border border-border bg-surface p-4">
+              {/* Always visible, not hover-gated — hover never fires on touch
+                  devices, which made these effectively invisible/unusable on mobile.
+                  Buttons are sized to a real touch target (44px), not just the icon,
+                  since a bare 14px icon is very easy to miss with a finger. */}
+              <div className="absolute right-1.5 top-1.5 flex">
+                <button
+                  onClick={() => startEdit(item)}
+                  className="flex h-11 w-11 items-center justify-center text-muted hover:text-primary active:text-primary"
+                  aria-label="Edit"
+                >
+                  <Pencil size={16} />
                 </button>
-                <button onClick={() => remove(item.id)} className="text-muted hover:text-danger">
-                  <Trash2 size={14} />
+                <button
+                  onClick={() => remove(item.id)}
+                  className="flex h-11 w-11 items-center justify-center text-muted hover:text-danger active:text-danger"
+                  aria-label="Delete"
+                >
+                  <Trash2 size={16} />
                 </button>
               </div>
-              {renderSummary(item)}
+              <div className="pr-24">{renderSummary(item)}</div>
             </div>
           )
         )}
