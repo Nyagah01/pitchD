@@ -2,20 +2,31 @@ import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Calendar, Gauge, ArrowUpRight } from "lucide-react";
 import RejectionFeedbackModal from "./RejectionFeedbackModal";
-import { STATUSES, STATUS_COLORS, updateApplicationStatus, updateApplication } from "../../lib/applications";
+import {
+  STATUSES,
+  STATUS_COLORS,
+  updateApplicationStatus,
+  updateApplication,
+  toLocalDatetimeInput,
+} from "../../lib/applications";
 
 export default function ApplicationsTable({ applications, onChanged }) {
   const [expandedId, setExpandedId] = useState(null);
   const [pendingRejectionId, setPendingRejectionId] = useState(null);
   const [interviewDraft, setInterviewDraft] = useState("");
+  const [draftDirty, setDraftDirty] = useState(false);
 
   function toggleExpand(app) {
     if (expandedId === app.id) {
       setExpandedId(null);
       return;
     }
+    if (draftDirty && !confirm("Discard the unsaved interview date you were editing?")) {
+      return;
+    }
     setExpandedId(app.id);
-    setInterviewDraft(app.interview_date ? app.interview_date.slice(0, 16) : "");
+    setInterviewDraft(toLocalDatetimeInput(app.interview_date));
+    setDraftDirty(false);
   }
 
   async function handleStatusChange(app, status) {
@@ -32,6 +43,7 @@ export default function ApplicationsTable({ applications, onChanged }) {
     await updateApplication(app.id, {
       interview_date: interviewDraft ? new Date(interviewDraft).toISOString() : null,
     });
+    setDraftDirty(false);
     onChanged();
   }
 
@@ -119,7 +131,10 @@ export default function ApplicationsTable({ applications, onChanged }) {
                             <input
                               type="datetime-local"
                               value={interviewDraft}
-                              onChange={(e) => setInterviewDraft(e.target.value)}
+                              onChange={(e) => {
+                                setInterviewDraft(e.target.value);
+                                setDraftDirty(true);
+                              }}
                               className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
                             />
                             <button

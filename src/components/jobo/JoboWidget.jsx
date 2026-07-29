@@ -13,6 +13,15 @@ const INTRO = {
 
 const SEEN_KEY = "pitchd-jobo-seen";
 
+// Jobo's replies naturally use **bold** for emphasis — render it instead of
+// showing the literal asterisks in the chat bubble.
+function renderContent(text) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
+    const match = part.match(/^\*\*([^*]+)\*\*$/);
+    return match ? <strong key={i}>{match[1]}</strong> : part;
+  });
+}
+
 export default function JoboWidget() {
   const { id: applicationId } = useParams();
   const [open, setOpen] = useState(false);
@@ -24,14 +33,21 @@ export default function JoboWidget() {
   const [savedOfferIndex, setSavedOfferIndex] = useState(null);
   const [showHint, setShowHint] = useState(() => !localStorage.getItem(SEEN_KEY));
   const scrollRef = useRef(null);
+  const hasLoadedRef = useRef(false);
 
   function markSeen() {
     localStorage.setItem(SEEN_KEY, "1");
     setShowHint(false);
   }
 
+  // Load history once, the first time the widget is opened — refetching on
+  // every open would race the fire-and-forget saveJoboMessage() calls below
+  // (close+reopen right after sending could refetch pre-send history and
+  // silently wipe the just-sent message back out of the visible thread).
+  // After the initial load, local state is the source of truth.
   useEffect(() => {
-    if (!open) return;
+    if (!open || hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     listJoboMessages().then((rows) => {
       if (rows.length > 0) setMessages(rows);
     });
@@ -129,7 +145,7 @@ export default function JoboWidget() {
                       m.role === "user" ? "bg-primary text-white" : "bg-bg text-text"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+                    <p className="whitespace-pre-wrap">{renderContent(m.content)}</p>
                     {m.saveOffer && (
                       <button
                         onClick={() => handleAddToInterviewPrep(i, m.saveOffer)}

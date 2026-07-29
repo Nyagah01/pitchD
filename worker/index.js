@@ -9,26 +9,51 @@ const CORS_HEADERS = {
 
 class AuthError extends Error {}
 class QuotaError extends Error {}
+// Errors safe to show to the client verbatim — everything else gets a generic
+// message so raw internal detail (Supabase/PostgREST bodies, stack traces,
+// upstream API error text) never leaks to the browser.
+class PublicError extends Error {}
+
+const FETCH_TIMEOUT_MS = 45000;
+const AUTH_TIMEOUT_MS = 10000;
 
 async function requireUser(req, env) {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token) throw new AuthError("Missing Authorization header");
 
-  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("Auth check failed:", err.message || err);
+    throw new AuthError("Could not verify your session — try again.");
+  }
   if (!res.ok) throw new AuthError("Invalid or expired session");
   return res.json();
 }
 
-const DAILY_LIMIT = 5;
+const DAILY_LIMITS = {
+  generation: 5,
+  prep: 5,
+  structure_profile: 5,
+  essay: 5,
+  other_help: 5,
+  jobo: 30,
+};
 const QUOTA_MESSAGES = {
   generation: "You've reached today's limit of 5 job application generations. Come back tomorrow for 5 more.",
   prep: "You've reached today's limit of 5 interview/codility prep requests. Come back tomorrow for 5 more.",
+  structure_profile: "You've reached today's limit of 5 profile restructures. Come back tomorrow for 5 more.",
+  essay: "You've reached today's limit of 5 essay generations. Come back tomorrow for 5 more.",
+  other_help: "You've reached today's limit of 5 quick-research requests. Come back tomorrow for 5 more.",
+  jobo: "You've reached today's limit of 30 Jobo messages. Come back tomorrow for 30 more.",
 };
 
 function startOfTodayUTC() {
@@ -36,20 +61,32 @@ function startOfTodayUTC() {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 }
 
-// kind: "generation" (CV + cover letter) or "prep" (interview prep + codility prep, shared cap)
+// kind: "generation" (CV + cover letter), "prep" (interview + codility prep,
+// shared cap), "structure_profile", "essay", "other_help", or "jobo".
+//
+// Records the usage event FIRST, then counts — a plain count-then-insert has
+// a TOCTOU race where concurrent requests can all read the same pre-insert
+// count and all pass the check. Inserting first and verifying after means the
+// worst case is a request landing right at the cap gets rolled back even
+// though there was technically room for it — never that the cap gets
+// exceeded.
 async function checkAndRecordUsage(env, userId, kind) {
+  const limit = DAILY_LIMITS[kind];
   const since = startOfTodayUTC();
+  const [inserted] = await supabaseRequest(env, `/rest/v1/usage_events`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, kind }),
+  });
   const rows = await supabaseRequest(
     env,
     `/rest/v1/usage_events?select=id&user_id=eq.${userId}&kind=eq.${kind}&created_at=gte.${since}`
   );
-  if (rows.length >= DAILY_LIMIT) {
+  if (rows.length > limit) {
+    await supabaseRequest(env, `/rest/v1/usage_events?id=eq.${inserted.id}`, { method: "DELETE" }).catch((err) =>
+      console.error("Failed to roll back over-limit usage event:", err.message || err)
+    );
     throw new QuotaError(QUOTA_MESSAGES[kind]);
   }
-  await supabaseRequest(env, `/rest/v1/usage_events`, {
-    method: "POST",
-    body: JSON.stringify({ user_id: userId, kind }),
-  });
 }
 
 function json(data, status = 200) {
@@ -69,7 +106,7 @@ function extractText(message) {
 
 function assertNotTruncated(message) {
   if (message.stop_reason === "max_tokens") {
-    throw new Error(
+    throw new PublicError(
       "The AI's response was too long and got cut off before finishing — try again with a shorter dump, or split it into two passes."
     );
   }
@@ -102,6 +139,7 @@ async function callClaude(env, { system, messages, tools, maxTokens = 4096 }, at
         messages,
         ...(tools ? { tools } : {}),
       }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch (err) {
     // Transient network-level failure reaching Anthropic (not an API error response) — worth one retry.
@@ -279,6 +317,7 @@ async function handleResearchedPrep(req, env, { kind }) {
     maxTokens: 4096,
   });
 
+  assertNotTruncated(message);
   return json({ content: extractText(message) });
 }
 
@@ -323,6 +362,7 @@ async function handleEssay(req, env) {
     maxTokens: 2048,
   });
 
+  assertNotTruncated(message);
   return json({ content: extractText(message) });
 }
 
@@ -384,20 +424,34 @@ async function handleOtherHelp(req, env) {
 
 // --- Reminder cron -----------------------------------------------------
 
+// Returns whether the email actually went out — callers must not mark a
+// reminder "sent" unless this is true, or a bad key / Resend outage / missing
+// address permanently silences that reminder with no retry.
 async function sendReminderEmail(env, { to, subject, body }) {
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: env.REMINDER_FROM_EMAIL ?? "Pitchd <reminders@pitchd.app>",
-      to,
-      subject,
-      text: body,
-    }),
-  });
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: env.REMINDER_FROM_EMAIL ?? "Pitchd <reminders@pitchd.app>",
+        to,
+        subject,
+        text: body,
+      }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      console.error(`Resend email failed (${res.status}):`, await res.text().catch(() => ""));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Resend email fetch failed:", err.message || err);
+    return false;
+  }
 }
 
 async function supabaseRequest(env, path, init = {}) {
@@ -410,6 +464,7 @@ async function supabaseRequest(env, path, init = {}) {
       Prefer: "return=representation",
       ...init.headers,
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Supabase request failed (${res.status}): ${await res.text()}`);
   return res.json();
@@ -419,43 +474,62 @@ async function runReminderSweep(env) {
   const now = new Date();
   const horizon = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
 
-  const dueInterviews = await supabaseRequest(
-    env,
-    `/rest/v1/applications?select=id,user_id,company,role,interview_date&interview_reminder_sent=eq.false&interview_date=not.is.null&interview_date=lte.${horizon}`
-  );
-  const dueDeadlines = await supabaseRequest(
-    env,
-    `/rest/v1/applications?select=id,user_id,company,role,deadline&deadline_reminder_sent=eq.false&deadline=not.is.null&deadline=lte.${horizon}&status=not.in.(applied,withdrawn,denied)`
-  );
+  let dueInterviews = [];
+  let dueDeadlines = [];
+  try {
+    dueInterviews = await supabaseRequest(
+      env,
+      `/rest/v1/applications?select=id,user_id,company,role,interview_date&interview_reminder_sent=eq.false&interview_date=not.is.null&interview_date=lte.${horizon}`
+    );
+  } catch (err) {
+    console.error("Reminder sweep: failed to fetch due interviews:", err.message || err);
+  }
+  try {
+    dueDeadlines = await supabaseRequest(
+      env,
+      `/rest/v1/applications?select=id,user_id,company,role,deadline&deadline_reminder_sent=eq.false&deadline=not.is.null&deadline=lte.${horizon}&status=not.in.(applied,withdrawn,denied)`
+    );
+  } catch (err) {
+    console.error("Reminder sweep: failed to fetch due deadlines:", err.message || err);
+  }
 
   for (const app of dueInterviews) {
-    const [user] = await supabaseRequest(env, `/rest/v1/profile?select=email&user_id=eq.${app.user_id}`);
-    if (user?.email) {
-      await sendReminderEmail(env, {
+    try {
+      const [user] = await supabaseRequest(env, `/rest/v1/profile?select=email&user_id=eq.${app.user_id}`);
+      if (!user?.email) continue; // nothing to send to yet; leave unset so a later sweep retries once an email is on file
+      const sent = await sendReminderEmail(env, {
         to: user.email,
         subject: `Interview coming up — ${app.company}`,
         body: `Your interview for ${app.role} at ${app.company} is on ${new Date(app.interview_date).toLocaleString()}.`,
       });
+      if (!sent) continue; // leave the flag false so the next sweep retries
+      await supabaseRequest(env, `/rest/v1/applications?id=eq.${app.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ interview_reminder_sent: true }),
+      });
+    } catch (err) {
+      // One bad row shouldn't take down the rest of the sweep.
+      console.error(`Reminder sweep: interview reminder failed for application ${app.id}:`, err.message || err);
     }
-    await supabaseRequest(env, `/rest/v1/applications?id=eq.${app.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ interview_reminder_sent: true }),
-    });
   }
 
   for (const app of dueDeadlines) {
-    const [user] = await supabaseRequest(env, `/rest/v1/profile?select=email&user_id=eq.${app.user_id}`);
-    if (user?.email) {
-      await sendReminderEmail(env, {
+    try {
+      const [user] = await supabaseRequest(env, `/rest/v1/profile?select=email&user_id=eq.${app.user_id}`);
+      if (!user?.email) continue;
+      const sent = await sendReminderEmail(env, {
         to: user.email,
         subject: `Deadline approaching — ${app.company}`,
         body: `The application deadline for ${app.role} at ${app.company} is ${new Date(app.deadline).toLocaleDateString()}.`,
       });
+      if (!sent) continue;
+      await supabaseRequest(env, `/rest/v1/applications?id=eq.${app.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ deadline_reminder_sent: true }),
+      });
+    } catch (err) {
+      console.error(`Reminder sweep: deadline reminder failed for application ${app.id}:`, err.message || err);
     }
-    await supabaseRequest(env, `/rest/v1/applications?id=eq.${app.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ deadline_reminder_sent: true }),
-    });
   }
 }
 
@@ -477,6 +551,7 @@ export default {
 
       switch (pathname) {
         case "/structure-profile":
+          await checkAndRecordUsage(env, user.id, "structure_profile");
           return await handleStructureProfile(request, env);
         case "/generate-application":
           await checkAndRecordUsage(env, user.id, "generation");
@@ -488,10 +563,13 @@ export default {
           await checkAndRecordUsage(env, user.id, "prep");
           return await handleResearchedPrep(request, env, { kind: "codility_prep" });
         case "/essay":
+          await checkAndRecordUsage(env, user.id, "essay");
           return await handleEssay(request, env);
         case "/other-help":
+          await checkAndRecordUsage(env, user.id, "other_help");
           return await handleOtherHelp(request, env);
         case "/jobo":
+          await checkAndRecordUsage(env, user.id, "jobo");
           return await handleJoboChat(request, env);
         case "/synthesize-lessons":
           return await handleSynthesizeLessons(request, env);
@@ -506,11 +584,19 @@ export default {
         return json({ error: err.message, code: "DAILY_LIMIT_REACHED" }, 429);
       }
       console.error(`[${pathname}]`, err.stack || err.message || err);
-      return json({ error: err.message || String(err) }, 500);
+      if (err instanceof PublicError) {
+        return json({ error: err.message }, 422);
+      }
+      // Everything else (Supabase/PostgREST bodies, upstream API error text,
+      // parse failures, unexpected bugs) is logged above but never shown
+      // verbatim to the client.
+      return json({ error: "Something went wrong on our end. Try again, and let us know if it keeps happening." }, 500);
     }
   },
 
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(runReminderSweep(env));
+    ctx.waitUntil(
+      runReminderSweep(env).catch((err) => console.error("Reminder sweep crashed:", err.stack || err.message || err))
+    );
   },
 };

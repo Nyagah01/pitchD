@@ -2,9 +2,17 @@ import { useState } from "react";
 import { STATUSES, updateApplicationStatus } from "../../lib/applications";
 import RejectionFeedbackModal from "./RejectionFeedbackModal";
 
+// The linear funnel this pipeline visualizes — denied/withdrawn are terminal
+// outcomes, not funnel stages, and deliberately excluded: there's no stored
+// history of which funnel stages an application actually reached before
+// being rejected/withdrawn, so treating their position in STATUSES as
+// "further along" would fabricate progress (e.g. rendering Interview/Offer
+// as passed for an app rejected right after applying).
+const FUNNEL = ["not_applied", "applied", "in_progress", "interview", "offer"];
+
 export default function StatusPipeline({ application, onChanged }) {
   const [showRejectionModal, setShowRejectionModal] = useState(false);
-  const currentIdx = STATUSES.findIndex((s) => s.value === application.status);
+  const currentFunnelIdx = FUNNEL.indexOf(application.status);
 
   async function setStatus(value) {
     if (value === application.status) return;
@@ -18,9 +26,10 @@ export default function StatusPipeline({ application, onChanged }) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      {STATUSES.map((s, idx) => {
+      {STATUSES.map((s) => {
         const active = s.value === application.status;
-        const passed = idx <= currentIdx;
+        const funnelIdx = FUNNEL.indexOf(s.value);
+        const passed = currentFunnelIdx !== -1 && funnelIdx !== -1 && funnelIdx <= currentFunnelIdx;
         return (
           <button
             key={s.value}

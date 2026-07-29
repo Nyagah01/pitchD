@@ -23,6 +23,7 @@ import {
   deleteContact,
   listGeneratedDocs,
   saveGeneratedDoc,
+  toLocalDatetimeInput,
 } from "../lib/applications";
 
 const TABS = ["CV", "Cover Letter", "Interview Prep", "Codility Prep", "Essay", "Other"];
@@ -47,7 +48,7 @@ export default function ApplicationDetail() {
     getApplication(id).then((app) => {
       setApplication(app);
       setNotes(app.notes ?? "");
-      setInterviewDate(app.interview_date ? app.interview_date.slice(0, 16) : "");
+      setInterviewDate(toLocalDatetimeInput(app.interview_date));
     });
     listContacts(id).then(setContacts);
     listGeneratedDocs(id).then(setDocs);
@@ -219,6 +220,7 @@ export default function ApplicationDetail() {
                     application.role
                   );
                   await saveGeneratedDoc(id, "interview_prep", content);
+                  reload();
                   return content;
                 })
               }
@@ -236,6 +238,7 @@ export default function ApplicationDetail() {
                     application.role
                   );
                   await saveGeneratedDoc(id, "codility_prep", content);
+                  reload();
                   return content;
                 })
               }
@@ -248,6 +251,7 @@ export default function ApplicationDetail() {
                 withProfile(async (profile) => {
                   const { content } = await generateEssay(profile, prompt, application.job_description);
                   await saveGeneratedDoc(id, "essay", content);
+                  reload();
                   return content;
                 })
               }
@@ -260,6 +264,7 @@ export default function ApplicationDetail() {
                 const result = await generateOtherHelp(query, application.company, application.role);
                 const content = JSON.stringify(result);
                 await saveGeneratedDoc(id, "other_help", content);
+                reload();
                 return content;
               }}
             />

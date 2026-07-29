@@ -137,6 +137,15 @@ export const STATUS_COLORS = {
   withdrawn: { dot: "bg-muted", pill: "border-border text-muted" },
 };
 
+// `deadline` is a plain SQL `date` (e.g. "2026-07-30") with no timezone.
+// `new Date("2026-07-30")` parses that as UTC midnight, which for negative
+// UTC offsets lands in the *previous* local calendar day — so parse the
+// components explicitly as a local-midnight date instead.
+function parseLocalDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function upcomingReminders(applications, withinDays = 7) {
   const now = new Date();
   const horizon = new Date(now.getTime() + withinDays * 24 * 60 * 60 * 1000);
@@ -151,7 +160,7 @@ export function upcomingReminders(applications, withinDays = 7) {
         }
       }
       if (app.deadline && !["applied", "withdrawn", "denied"].includes(app.status)) {
-        const d = new Date(app.deadline);
+        const d = parseLocalDate(app.deadline);
         if (d >= now && d <= horizon) {
           items.push({ id: `${app.id}-deadline`, app, kind: "deadline", date: d });
         }
@@ -159,4 +168,14 @@ export function upcomingReminders(applications, withinDays = 7) {
       return items;
     })
     .sort((a, b) => a.date - b.date);
+}
+
+// Convert a stored UTC ISO timestamp into the local "YYYY-MM-DDTHH:mm" value
+// a <input type="datetime-local"> expects, so re-opening a saved interview
+// date shows the same local time that was originally picked.
+export function toLocalDatetimeInput(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }
