@@ -1,5 +1,97 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Check } from "lucide-react";
+
+const PROFICIENCIES = ["Beginner", "Intermediate", "Expert"];
+
+function SkillPill({ skill, api, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(skill);
+  const [busy, setBusy] = useState(false);
+
+  function startEdit() {
+    setDraft(skill);
+    setEditing(true);
+  }
+
+  async function save() {
+    if (!draft.name.trim()) return;
+    setBusy(true);
+    try {
+      await api.update(skill.id, {
+        name: draft.name.trim(),
+        category: draft.category,
+        proficiency: draft.proficiency,
+      });
+      setEditing(false);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    await api.remove(skill.id);
+    onChanged();
+  }
+
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-surface py-1 pl-2.5 pr-1.5 text-xs">
+        <input
+          autoFocus
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && save()}
+          className="w-24 min-w-0 rounded border border-border bg-bg px-1.5 py-0.5 text-xs text-text outline-none focus:border-primary"
+        />
+        <select
+          value={draft.proficiency || "Intermediate"}
+          onChange={(e) => setDraft({ ...draft, proficiency: e.target.value })}
+          className="rounded border border-border bg-bg px-1 py-0.5 text-xs text-text outline-none"
+        >
+          {PROFICIENCIES.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+        <button
+          disabled={busy}
+          onClick={save}
+          className="flex h-8 w-8 items-center justify-center text-primary hover:text-primary-deep"
+          aria-label="Save"
+        >
+          <Check size={14} />
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="flex h-8 w-8 items-center justify-center text-muted hover:text-text"
+          aria-label="Cancel"
+        >
+          <X size={13} />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center rounded-full border border-border bg-surface pl-3 pr-1 text-xs text-text">
+      <button
+        type="button"
+        onClick={startEdit}
+        className="py-2.5 pr-1"
+        aria-label={`Edit ${skill.name}`}
+      >
+        {skill.name}
+      </button>
+      <button
+        onClick={remove}
+        className="flex h-8 w-8 items-center justify-center text-muted hover:text-danger"
+        aria-label={`Remove ${skill.name}`}
+      >
+        <X size={12} />
+      </button>
+    </span>
+  );
+}
 
 export default function SkillsGrid({ skills, api, onChanged }) {
   const [name, setName] = useState("");
@@ -17,11 +109,6 @@ export default function SkillsGrid({ skills, api, onChanged }) {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function remove(id) {
-    await api.remove(id);
-    onChanged();
   }
 
   const grouped = skills.reduce((acc, s) => {
@@ -72,15 +159,7 @@ export default function SkillsGrid({ skills, api, onChanged }) {
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">{cat}</p>
           <div className="flex flex-wrap gap-2">
             {items.map((s) => (
-              <span
-                key={s.id}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-text"
-              >
-                {s.name}
-                <button onClick={() => remove(s.id)} className="text-muted hover:text-danger">
-                  <X size={11} />
-                </button>
-              </span>
+              <SkillPill key={s.id} skill={s} api={api} onChanged={onChanged} />
             ))}
           </div>
         </div>
