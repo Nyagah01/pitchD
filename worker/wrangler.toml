@@ -15,3 +15,5 @@ crons = ["0 7 * * *"]
 [vars]
 SUPABASE_URL = "https://ovzuvblxfieyrgxbolfx.supabase.co"
 REMINDER_FROM_EMAIL = "Pitchd <reminders@pitchd-ke.com>"
+# Where the low-Anthropic-credit alert (worker/index.js -> notifyFounderOfLowCredit) gets sent.
+ADMIN_ALERT_EMAIL = "briannyagah194@gmail.com"

@@ -45,8 +45,11 @@ async function post(path, body) {
     }
     console.error(`Worker ${path} failed (${res.status}):`, detail);
 
-    // A handful of our own worker errors are genuinely actionable — surface those as-is.
-    if (/too long and got cut off/i.test(detail)) {
+    // 422 is the worker's PublicError status — those messages are deliberately
+    // written to be shown to the user as-is (truncated responses, low
+    // Anthropic credit, etc.), unlike everything else in this branch which is
+    // raw/internal detail we don't want to leak.
+    if (res.status === 422 && detail) {
       throw new Error(detail);
     }
     if (code === "DAILY_LIMIT_REACHED") {

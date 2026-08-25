@@ -158,9 +158,51 @@ async function callClaude(env, { system, messages, tools, maxTokens = 4096 }, at
 
   if (!res.ok) {
     const text = await res.text();
+    if (/credit balance/i.test(text)) {
+      // Not something retrying fixes — someone needs to add funds. Alert the
+      // founder (rate-limited so a burst of failed requests doesn't spam
+      // their inbox) and give the end user an honest, non-technical message
+      // rather than a generic "something went wrong."
+      await notifyFounderOfLowCredit(env).catch((err) =>
+        console.error("Failed to send low-credit alert:", err.message || err)
+      );
+      throw new PublicError(
+        "We're temporarily unable to generate right now — our team's already been notified and is on it. Please try again in a little while."
+      );
+    }
     throw new Error(`Anthropic API error (${res.status}): ${text}`);
   }
   return res.json();
+}
+
+const LOW_CREDIT_ALERT_COOLDOWN_MS = 60 * 60 * 1000; // don't re-alert more than once an hour
+
+async function notifyFounderOfLowCredit(env) {
+  if (!env.ADMIN_ALERT_EMAIL) return;
+  const key = "anthropic_low_credit";
+
+  let existing;
+  try {
+    [existing] = await supabaseRequest(env, `/rest/v1/system_alerts?select=last_sent_at&key=eq.${key}`);
+  } catch (err) {
+    console.error("Low-credit alert: failed to check cooldown, skipping to be safe:", err.message || err);
+    return;
+  }
+  const lastSent = existing?.last_sent_at ? new Date(existing.last_sent_at).getTime() : 0;
+  if (Date.now() - lastSent < LOW_CREDIT_ALERT_COOLDOWN_MS) return;
+
+  const sent = await sendReminderEmail(env, {
+    to: env.ADMIN_ALERT_EMAIL,
+    subject: "Pitchd: Anthropic API credit balance is too low",
+    body: "Claude API calls are failing because the Anthropic account's credit balance is too low. Add funds or enable auto-reload at https://console.anthropic.com/settings/billing — CV generation, Jobo, and every other AI feature on Pitchd is down until this is fixed.",
+  });
+  if (!sent) return;
+
+  await supabaseRequest(env, `/rest/v1/system_alerts?on_conflict=key`, {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({ key, last_sent_at: new Date().toISOString() }),
+  }).catch((err) => console.error("Low-credit alert: failed to record cooldown:", err.message || err));
 }
 
 function profileToText(profile) {

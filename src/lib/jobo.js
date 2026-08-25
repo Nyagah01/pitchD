@@ -70,6 +70,11 @@ export async function sendJoboMessage(history, context) {
     if (res.status === 429 && detail) {
       throw new Error(detail);
     }
+    // 422 is the worker's PublicError status — those messages are deliberately
+    // written to be shown to the user as-is (e.g. low Anthropic credit).
+    if (res.status === 422 && detail) {
+      throw new Error(detail);
+    }
     if (res.status === 401) {
       throw new Error("Your session's expired — sign in again and retry.");
     }
