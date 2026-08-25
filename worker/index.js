@@ -490,12 +490,16 @@ async function supabaseRequest(env, path, init = {}) {
   return res.json();
 }
 
+const STALE_NOT_APPLIED_DAYS = 7;
+
 async function runReminderSweep(env) {
   const now = new Date();
   const horizon = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const staleCutoff = new Date(now.getTime() - STALE_NOT_APPLIED_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   let dueInterviews = [];
   let dueDeadlines = [];
+  let staleNotApplied = [];
   try {
     dueInterviews = await supabaseRequest(
       env,
@@ -511,6 +515,17 @@ async function runReminderSweep(env) {
     );
   } catch (err) {
     console.error("Reminder sweep: failed to fetch due deadlines:", err.message || err);
+  }
+  try {
+    // Applications the user started (dumped a job description in, maybe
+    // generated a CV) but never actually marked "applied" — a week of
+    // silence is worth a nudge before it just quietly rots in the pipeline.
+    staleNotApplied = await supabaseRequest(
+      env,
+      `/rest/v1/applications?select=id,user_id,company,role&status=eq.not_applied&not_applied_reminder_sent=eq.false&created_at=lte.${staleCutoff}`
+    );
+  } catch (err) {
+    console.error("Reminder sweep: failed to fetch stale not-applied applications:", err.message || err);
   }
 
   for (const app of dueInterviews) {
@@ -549,6 +564,25 @@ async function runReminderSweep(env) {
       });
     } catch (err) {
       console.error(`Reminder sweep: deadline reminder failed for application ${app.id}:`, err.message || err);
+    }
+  }
+
+  for (const app of staleNotApplied) {
+    try {
+      const [user] = await supabaseRequest(env, `/rest/v1/profile?select=email&user_id=eq.${app.user_id}`);
+      if (!user?.email) continue;
+      const sent = await sendReminderEmail(env, {
+        to: user.email,
+        subject: `Still sitting in your pipeline — ${app.company}`,
+        body: `You started an application for ${app.role} at ${app.company} about a week ago but haven't marked it applied yet. Worth finishing it off, or is it time to withdraw it from your pipeline?`,
+      });
+      if (!sent) continue;
+      await supabaseRequest(env, `/rest/v1/applications?id=eq.${app.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ not_applied_reminder_sent: true }),
+      });
+    } catch (err) {
+      console.error(`Reminder sweep: stale not-applied reminder failed for application ${app.id}:`, err.message || err);
     }
   }
 }
