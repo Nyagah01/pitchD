@@ -20,6 +20,8 @@ import {
 } from "../lib/profile";
 import { uploadProfilePhoto } from "../lib/uploads";
 import { friendlyError } from "../lib/friendlyError";
+import { useAutosave } from "../lib/useAutosave";
+import AutosaveStatus from "../components/common/AutosaveStatus";
 
 function initials(name) {
   return (name || "")
@@ -80,7 +82,6 @@ function PhotoUpload({ photoUrl, fullName, onUploaded }) {
 export default function Profile() {
   const [data, setData] = useState(null);
   const [basics, setBasics] = useState(null);
-  const [savingBasics, setSavingBasics] = useState(false);
 
   const reload = useCallback(() => {
     getFullProfile().then((full) => {
@@ -93,22 +94,23 @@ export default function Profile() {
     reload();
   }, [reload]);
 
+  const basicsStatus = useAutosave(
+    basics,
+    async (b) => {
+      await upsertProfile(b);
+      // Merge locally instead of a full reload() — avoids clobbering
+      // in-progress edits elsewhere on the page mid-debounce.
+      setData((d) => (d ? { ...d, profile: { ...d.profile, ...b } } : d));
+    },
+    { enabled: !!basics }
+  );
+
   if (!data) {
     return <p className="text-sm text-muted">Loading profile…</p>;
   }
 
   const { score, gaps } = computeProfileStrength(data);
   const { tier, count: credentialCount } = computeCredentialTier(data);
-
-  async function saveBasics() {
-    setSavingBasics(true);
-    try {
-      await upsertProfile(basics);
-      reload();
-    } finally {
-      setSavingBasics(false);
-    }
-  }
 
   return (
     <div className="flex flex-col gap-8 pb-16">
@@ -128,7 +130,10 @@ export default function Profile() {
       <UpdateFromMasterFile currentProfile={data.profile} onMerged={reload} />
 
       <section className="rounded-2xl border border-border bg-surface p-5">
-        <h3 className="mb-3 text-sm font-semibold text-text">Basics</h3>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-text">Basics</h3>
+          <AutosaveStatus status={basicsStatus} />
+        </div>
         <PhotoUpload
           photoUrl={basics.photo_url}
           fullName={basics.full_name}
@@ -167,13 +172,6 @@ export default function Profile() {
             />
           </label>
         </div>
-        <button
-          onClick={saveBasics}
-          disabled={savingBasics}
-          className="cta-glow mt-4 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          {savingBasics ? "Saving…" : "Save basics"}
-        </button>
       </section>
 
       <EditableList
@@ -185,8 +183,8 @@ export default function Profile() {
         fields={[
           { key: "company", label: "Company" },
           { key: "role", label: "Role" },
-          { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently working here", span: true },
+          { key: "start_date", label: "Start date", type: "month" },
+          { key: "end_date", label: "End date", type: "month", allowPresent: true, presentLabel: "Currently working here", span: true },
           { key: "description", label: "Description", textarea: true, span: true },
           { key: "achievements", label: "Achievements", span: true, isList: true },
           { key: "skills_used", label: "Skills used", span: true, isList: true },
@@ -211,8 +209,8 @@ export default function Profile() {
           { key: "degree", label: "Degree" },
           { key: "field", label: "Field" },
           { key: "grade", label: "Grade" },
-          { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently studying here", span: true },
+          { key: "start_date", label: "Start date", type: "month" },
+          { key: "end_date", label: "End date", type: "month", allowPresent: true, presentLabel: "Currently studying here", span: true },
         ]}
         renderSummary={(item) => (
           <div>
@@ -256,7 +254,7 @@ export default function Profile() {
         fields={[
           { key: "name", label: "Name" },
           { key: "issuer", label: "Issuer" },
-          { key: "date_issued", label: "Date issued", type: "date" },
+          { key: "date_issued", label: "Date issued", type: "month" },
           { key: "credential_url", label: "Credential URL (optional)" },
           { key: "attachment_url", label: "Certificate file (PDF or photo, optional)", type: "file", span: true },
         ]}

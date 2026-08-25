@@ -25,6 +25,8 @@ import {
   saveGeneratedDoc,
   toLocalDatetimeInput,
 } from "../lib/applications";
+import { useAutosave } from "../lib/useAutosave";
+import AutosaveStatus from "../components/common/AutosaveStatus";
 
 const TABS = ["CV", "Cover Letter", "Interview Prep", "Codility Prep", "Essay", "Other"];
 
@@ -58,15 +60,14 @@ export default function ApplicationDetail() {
     reload();
   }, [reload]);
 
+  const notesStatus = useAutosave(notes, (n) => updateApplication(id, { notes: n }), { enabled: !!application });
+  const interviewDateStatus = useAutosave(
+    interviewDate,
+    (d) => updateApplication(id, { interview_date: d ? new Date(d).toISOString() : null }),
+    { delay: 400, enabled: !!application }
+  );
+
   if (!application) return <p className="text-sm text-muted">Loading…</p>;
-
-  async function saveNotes() {
-    await updateApplication(id, { notes });
-  }
-
-  async function saveInterviewDate() {
-    await updateApplication(id, { interview_date: interviewDate ? new Date(interviewDate).toISOString() : null });
-  }
 
   async function addContact(e) {
     e.preventDefault();
@@ -105,18 +106,16 @@ export default function ApplicationDetail() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <section className="rounded-xl border border-border bg-surface p-4">
-          <h3 className="mb-2 text-sm font-semibold text-text">Interview date</h3>
-          <div className="flex gap-2">
-            <input
-              type="datetime-local"
-              value={interviewDate}
-              onChange={(e) => setInterviewDate(e.target.value)}
-              className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
-            />
-            <button onClick={saveInterviewDate} className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white">
-              Save
-            </button>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-text">Interview date</h3>
+            <AutosaveStatus status={interviewDateStatus} />
           </div>
+          <input
+            type="datetime-local"
+            value={interviewDate}
+            onChange={(e) => setInterviewDate(e.target.value)}
+            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
+          />
         </section>
 
         <section className="rounded-xl border border-border bg-surface p-4">
@@ -155,11 +154,13 @@ export default function ApplicationDetail() {
       </div>
 
       <section className="rounded-xl border border-border bg-surface p-4">
-        <h3 className="mb-2 text-sm font-semibold text-text">Notes</h3>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-text">Notes</h3>
+          <AutosaveStatus status={notesStatus} />
+        </div>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={saveNotes}
           rows={3}
           className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
         />
