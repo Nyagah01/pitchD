@@ -9,7 +9,7 @@ import CVPreview from "../components/generate/CVPreview";
 import CoverLetterPreview from "../components/generate/CoverLetterPreview";
 import WaitGameModal from "../components/generate/WaitGameModal";
 import { getFullProfile } from "../lib/profile";
-import { generateApplication } from "../lib/claudeApi";
+import { generateApplication, optimizeApplication } from "../lib/claudeApi";
 import { createApplication, saveGeneratedDoc } from "../lib/applications";
 import { friendlyError } from "../lib/friendlyError";
 import { getTodayUsage, DAILY_USAGE_LIMIT } from "../lib/usage";
@@ -42,6 +42,8 @@ export default function Apply() {
   const [showGamePrompt, setShowGamePrompt] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
   const [generationsRemaining, setGenerationsRemaining] = useState(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizeFeedback, setOptimizeFeedback] = useState("");
 
   const promptTimerRef = useRef(null);
   const cancelLogRef = useRef(false);
@@ -102,6 +104,34 @@ export default function Apply() {
       setRunning(false);
       clearTimeout(promptTimerRef.current);
       setShowGamePrompt(false);
+    }
+  }
+
+  async function handleOptimize() {
+    setOptimizing(true);
+    setError("");
+    try {
+      const response = await optimizeApplication(
+        result.profile,
+        jd,
+        { cv: result.cv, coverLetter: result.coverLetter },
+        { hireabilityScore: result.hireabilityScore, notes: result.hireabilityNotes },
+        optimizeFeedback
+      );
+      setResult((r) => ({
+        ...r,
+        cv: response.cv,
+        coverLetter: response.coverLetter,
+        hireabilityScore: response.hireabilityScore,
+        hireabilityNotes: response.hireabilityNotes,
+        revisions: (r.revisions ?? 0) + 1,
+      }));
+      setOptimizeFeedback("");
+      setGenerationsRemaining((n) => (n == null ? n : Math.max(0, n - 1)));
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setOptimizing(false);
     }
   }
 
@@ -206,6 +236,37 @@ export default function Apply() {
               company={company}
               role={role}
             />
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-border p-4">
+            <h3 className="text-sm font-semibold text-text">Want to sharpen it further?</h3>
+            <p className="mt-1 text-xs text-muted">
+              Optional — tell it what to focus on (e.g. "lean more into the leadership angle") and it'll revise the
+              CV and cover letter once, and rescore hireability.{" "}
+              {generationsRemaining != null && generationsRemaining > 0 && (
+                <span className="font-medium text-text">
+                  Uses 1 of your {generationsRemaining} generation{generationsRemaining === 1 ? "" : "s"} left today.
+                </span>
+              )}
+            </p>
+            <textarea
+              value={optimizeFeedback}
+              onChange={(e) => setOptimizeFeedback(e.target.value)}
+              placeholder="What should it change or emphasize? (optional)"
+              rows={2}
+              className="mt-3 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+            />
+            <button
+              onClick={handleOptimize}
+              disabled={optimizing || saving || generationsRemaining === 0}
+              className="mt-3 flex items-center gap-1 rounded-full border border-primary/40 bg-primary-soft px-4 py-2 text-xs font-semibold text-primary disabled:opacity-60"
+            >
+              {optimizing
+                ? "Optimizing…"
+                : generationsRemaining === 0
+                ? "Daily limit reached"
+                : "Optimize this CV"}
+            </button>
           </div>
 
           <button

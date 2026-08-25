@@ -7,9 +7,10 @@ if (!WORKER_URL) {
   );
 }
 
-// Generous — a full application generation can chain several sequential
-// Claude calls (draft, critique, up to 2 revise+critique passes) server-side.
-const REQUEST_TIMEOUT_MS = 120000;
+// Generous enough for two sequential Claude calls server-side (draft+critique,
+// or revise+critique for an optimize pass) — generation used to chain up to 6
+// calls and could legitimately take minutes; it's now capped at 2 per request.
+const REQUEST_TIMEOUT_MS = 75000;
 
 async function post(path, body) {
   const {
@@ -70,6 +71,18 @@ export const structureProfile = (rawText) => post("/structure-profile", { rawTex
 
 export const generateApplication = (fullProfile, jobDescription, lessonsLearned) =>
   post("/generate-application", { profile: fullProfile, jobDescription, lessonsLearned });
+
+// One extra revise+critique pass, optionally steered by the user's own
+// feedback text — a separate, opt-in call rather than something generation
+// does automatically. Counts against the same daily "generation" cap.
+export const optimizeApplication = (fullProfile, jobDescription, draft, critique, userFeedback) =>
+  post("/optimize-application", {
+    profile: fullProfile,
+    jobDescription,
+    draft,
+    critique,
+    userFeedback,
+  });
 
 export const generateInterviewPrep = (fullProfile, jobDescription, company, role) =>
   post("/interview-prep", { profile: fullProfile, jobDescription, company, role });

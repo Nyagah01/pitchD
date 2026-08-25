@@ -183,7 +183,7 @@ async function handleStructureProfile(req, env) {
   "projects": [{ "name": "", "description": "", "tech_stack": [], "url": "", "github_url": "", "impact": "" }],
   "uncategorized": ["short note about something that didn't confidently fit elsewhere", ...]
 }
-Dates should be ISO "YYYY-MM-DD" where a specific date is known, or just "YYYY" if only a year is given.`;
+The app only tracks month + year precision for these dates, never a specific day — respond with "YYYY-MM" where at least the month is known, or just "YYYY" if only a year is given. Never include a day.`;
 
   const message = await callClaude(env, {
     system,
@@ -195,9 +195,6 @@ Dates should be ISO "YYYY-MM-DD" where a specific date is known, or just "YYYY" 
   const structured = extractJson(extractText(message));
   return json(structured);
 }
-
-const HIREABILITY_THRESHOLD = 75;
-const MAX_REVISIONS = 2;
 
 async function generateDraft(env, profile, jobDescription, lessonsLearned) {
   const lessonsBlock =
@@ -251,7 +248,11 @@ async function critiqueDraft(env, draft, jobDescription) {
   return extractJson(extractText(message));
 }
 
-async function reviseDraft(env, draft, critique, jobDescription, profile) {
+async function reviseDraft(env, draft, critique, jobDescription, profile, userFeedback) {
+  const feedbackBlock = userFeedback?.trim()
+    ? `\n\nTHE CANDIDATE ALSO SPECIFICALLY ASKED FOR:\n${userFeedback.trim()}`
+    : "";
+
   const system = `You revise a CV and cover letter to address a hiring manager's critique — you may only reorder, reword, or re-emphasize what's actually in the candidate's real profile, never invent new experience or achievements. Respond with ONLY valid JSON, no prose, no markdown fences:
 {
   "cv": "<revised full CV as plain text, same format as before: name, contact line, ALL-CAPS section headers, '-' bullets, plain ASCII only, no decorative dividers>",
@@ -263,7 +264,7 @@ async function reviseDraft(env, draft, critique, jobDescription, profile) {
     messages: [
       {
         role: "user",
-        content: `PROFILE:\n${profileToText(profile)}\n\nJOB DESCRIPTION:\n${jobDescription}\n\nCURRENT CV:\n${draft.cv}\n\nCURRENT COVER LETTER:\n${draft.coverLetter}\n\nCRITIQUE TO ADDRESS:\n${critique.notes.map((n) => `- ${n}`).join("\n")}`,
+        content: `PROFILE:\n${profileToText(profile)}\n\nJOB DESCRIPTION:\n${jobDescription}\n\nCURRENT CV:\n${draft.cv}\n\nCURRENT COVER LETTER:\n${draft.coverLetter}\n\nCRITIQUE TO ADDRESS:\n${critique.notes.map((n) => `- ${n}`).join("\n")}${feedbackBlock}`,
       },
     ],
     maxTokens: 8192,
@@ -273,25 +274,44 @@ async function reviseDraft(env, draft, critique, jobDescription, profile) {
   return extractJson(extractText(message));
 }
 
+// One draft + one critique pass — that's it. This used to also auto-loop up
+// to 2 revise+critique rounds chasing a hireability threshold, which meant up
+// to 6 sequential Claude calls (worst case several minutes) before the client
+// ever saw a result, and any single call failing anywhere in that chain
+// failed the whole request. A single pass is fast and reliable; further
+// refinement is now a separate, user-initiated /optimize-application call
+// (see handleOptimizeApplication) so the person decides whether to spend
+// another one of their daily generations on it, instead of it happening
+// invisibly and unreliably every time.
 async function handleGenerateApplication(req, env) {
   const { profile, jobDescription, lessonsLearned } = await req.json();
 
-  let draft = await generateDraft(env, profile, jobDescription, lessonsLearned);
-  let critique = await critiqueDraft(env, draft, jobDescription);
-  let revisions = 0;
-
-  while (critique.hireabilityScore < HIREABILITY_THRESHOLD && revisions < MAX_REVISIONS) {
-    const revised = await reviseDraft(env, draft, critique, jobDescription, profile);
-    draft = { ...draft, cv: revised.cv, coverLetter: revised.coverLetter };
-    critique = await critiqueDraft(env, draft, jobDescription);
-    revisions++;
-  }
+  const draft = await generateDraft(env, profile, jobDescription, lessonsLearned);
+  const critique = await critiqueDraft(env, draft, jobDescription);
 
   return json({
     ...draft,
     hireabilityScore: critique.hireabilityScore,
     hireabilityNotes: critique.notes,
-    revisions,
+    revisions: 0,
+  });
+}
+
+// User-initiated follow-up: exactly one revise+critique pass, optionally
+// steered by free-text feedback from the person, layered on top of the
+// hiring-manager critique. Bounded the same way generation is (shares the
+// "generation" daily cap in the router) rather than looping internally.
+async function handleOptimizeApplication(req, env) {
+  const { profile, jobDescription, draft, critique, userFeedback } = await req.json();
+
+  const revised = await reviseDraft(env, draft, critique, jobDescription, profile, userFeedback);
+  const nextDraft = { ...draft, cv: revised.cv, coverLetter: revised.coverLetter };
+  const nextCritique = await critiqueDraft(env, nextDraft, jobDescription);
+
+  return json({
+    ...nextDraft,
+    hireabilityScore: nextCritique.hireabilityScore,
+    hireabilityNotes: nextCritique.notes,
   });
 }
 
@@ -556,6 +576,9 @@ export default {
         case "/generate-application":
           await checkAndRecordUsage(env, user.id, "generation");
           return await handleGenerateApplication(request, env);
+        case "/optimize-application":
+          await checkAndRecordUsage(env, user.id, "generation");
+          return await handleOptimizeApplication(request, env);
         case "/interview-prep":
           await checkAndRecordUsage(env, user.id, "prep");
           return await handleResearchedPrep(request, env, { kind: "interview_prep" });
