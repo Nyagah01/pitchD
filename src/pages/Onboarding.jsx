@@ -13,6 +13,7 @@ import {
   getProfile,
   upsertProfile,
   clearProfileTables,
+  sanitizeDates,
   experienceApi,
   educationApi,
   skillsApi,
@@ -23,23 +24,6 @@ import { friendlyError } from "../lib/friendlyError";
 import { useAuth } from "../lib/AuthContext";
 
 const STEPS = { SURVEY: "survey", INTAKE: "intake", STRUCTURING: "structuring", REVIEW: "review", SAVING: "saving" };
-
-function isValidDateInput(v) {
-  return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
-}
-
-// AI-extracted dates the user never touched can still be unparseable ("Jun
-// 2020") even though the review form displayed them as blank — save them as
-// null too, rather than letting the raw string (or an empty string, which
-// Postgres' `date` type also rejects — it needs null) hit the database and
-// fail with no indication of which row caused it.
-function sanitizeDates(row, keys) {
-  const clean = { ...row };
-  for (const k of keys) {
-    if (!isValidDateInput(clean[k])) clean[k] = null;
-  }
-  return clean;
-}
 
 const STRUCTURING_STEPS = [
   "Reading your dump",

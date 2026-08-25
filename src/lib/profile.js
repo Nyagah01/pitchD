@@ -5,6 +5,25 @@ async function currentUserId() {
   return data.user?.id;
 }
 
+// Career-history dates only ever need month + year precision (the review
+// form uses month pickers, and the AI is asked for "YYYY-MM"), but an
+// AI-extracted date the user never touched can still be a bare "YYYY" or
+// something unparseable ("Jun 2020"). Postgres' `date` column needs a real
+// day, so "YYYY-MM" gets "-01" appended, a full date passes through
+// untouched, and anything else (including "" — Postgres rejects empty
+// string too) becomes null rather than hitting the database and failing
+// with no indication of which row caused it.
+export function sanitizeDates(row, keys) {
+  const clean = { ...row };
+  for (const k of keys) {
+    const v = clean[k];
+    if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) clean[k] = v;
+    else if (v && /^\d{4}-\d{2}$/.test(v)) clean[k] = `${v}-01`;
+    else clean[k] = null;
+  }
+  return clean;
+}
+
 export async function getProfile() {
   const userId = await currentUserId();
   const { data, error } = await supabase.from("profile").select("*").eq("user_id", userId).maybeSingle();

@@ -4,13 +4,20 @@ import TagInput from "../common/TagInput";
 import { uploadCertificationFile } from "../../lib/uploads";
 import { friendlyError } from "../../lib/friendlyError";
 
-function isValidDateInput(v) {
-  return !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+// Career-history dates only ever need month + year precision. Storage stays
+// a full `date` column (Postgres has no month-only type), always with day
+// 01; the month input only ever shows/emits "YYYY-MM".
+function toMonthInputValue(v) {
+  if (!v) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v.slice(0, 7);
+  if (/^\d{4}-\d{2}$/.test(v)) return v;
+  return "";
 }
 
 function Field({ label, value, onChange, textarea, type, allowPresent, presentLabel = "Currently ongoing (no end date)" }) {
   const Comp = textarea ? "textarea" : "input";
-  const safeValue = type === "date" && !isValidDateInput(value) ? "" : (value ?? "");
+  const isMonth = type === "month";
+  const safeValue = isMonth ? toMonthInputValue(value) : (value ?? "");
   const [present, setPresent] = useState(allowPresent ? !safeValue : false);
 
   function togglePresent(checked) {
@@ -18,14 +25,22 @@ function Field({ label, value, onChange, textarea, type, allowPresent, presentLa
     if (checked) onChange(null);
   }
 
+  function handleChange(e) {
+    if (isMonth) {
+      onChange(e.target.value ? `${e.target.value}-01` : null);
+    } else {
+      onChange(e.target.value);
+    }
+  }
+
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <Comp
-        type={type}
+        type={isMonth ? "month" : type}
         value={present ? "" : safeValue}
         disabled={present}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
         rows={textarea ? 2 : undefined}
         className="w-full min-w-0 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
       />
@@ -114,14 +129,14 @@ export default function EditableList({ title, items, fields, emptyItem, api, onC
     setDraft({ ...draft, [key]: value });
   }
 
-  // A date field that displays blank (invalid/unparseable AI-extracted value the
-  // user never touched) must also SAVE as blank — otherwise the stale raw string
+  // A date field that displays blank (invalid/unparseable value the user
+  // never touched) must also SAVE as blank — otherwise the stale raw string
   // sails through untouched and only fails at the database, with no clue which
   // field it was.
   function sanitizedDraft() {
     const clean = { ...draft };
     for (const f of fields) {
-      if (f.type === "date" && !isValidDateInput(clean[f.key])) {
+      if (f.type === "month" && clean[f.key] && !toMonthInputValue(clean[f.key])) {
         clean[f.key] = null;
       }
     }
