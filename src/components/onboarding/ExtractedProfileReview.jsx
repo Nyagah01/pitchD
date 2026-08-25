@@ -2,19 +2,27 @@ import { useEffect, useState } from "react";
 import { X, Plus } from "lucide-react";
 import TagInput from "../common/TagInput";
 
-function isValidDateInput(v) {
-  return !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+// Career-history dates only ever need month + year precision — nobody cares
+// which day of the month a job started. Storage stays a full `date` column
+// (Postgres has no month-only type), always with day 01; the month input
+// only ever shows/emits "YYYY-MM".
+function toMonthInputValue(v) {
+  if (!v) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v.slice(0, 7);
+  if (/^\d{4}-\d{2}$/.test(v)) return v;
+  return "";
 }
 
 function Field({ label, value, onChange, textarea, type, allowPresent, presentLabel = "Currently ongoing (no end date)" }) {
   const Comp = textarea ? "textarea" : "input";
-  // AI-extracted dates ("2021", "Jun 2020") rarely match the yyyy-mm-dd a date
-  // input requires — showing them in a text box would silently fail to save
-  // (Postgres date column) with no clue which field was wrong. Blank + a real
-  // calendar picker beats that — but flag it in red so it's clear something
-  // was dropped, instead of just quietly looking empty.
-  const hasDateError = type === "date" && !!value && !isValidDateInput(value);
-  const safeValue = hasDateError ? "" : (value ?? "");
+  const isMonth = type === "month";
+  // AI-extracted dates ("2021", "Jun 2020") rarely match the format a real
+  // date/month picker requires — showing them in a text box would silently
+  // fail to save (Postgres date column) with no clue which field was wrong.
+  // Blank + a real picker beats that — but flag it in red so it's clear
+  // something was dropped, instead of just quietly looking empty.
+  const hasDateError = isMonth && !!value && !toMonthInputValue(value);
+  const safeValue = hasDateError ? "" : isMonth ? toMonthInputValue(value) : (value ?? "");
   const [present, setPresent] = useState(allowPresent ? !safeValue : false);
 
   function togglePresent(checked) {
@@ -22,14 +30,22 @@ function Field({ label, value, onChange, textarea, type, allowPresent, presentLa
     if (checked) onChange(null);
   }
 
+  function handleChange(e) {
+    if (isMonth) {
+      onChange(e.target.value ? `${e.target.value}-01` : null);
+    } else {
+      onChange(e.target.value);
+    }
+  }
+
   return (
     <label className="flex flex-col gap-1" data-date-error={hasDateError || undefined}>
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <Comp
-        type={type}
+        type={isMonth ? "month" : type}
         value={present ? "" : safeValue}
         disabled={present}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
         rows={textarea ? 2 : undefined}
         className={`w-full min-w-0 rounded-lg border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 ${
           hasDateError ? "border-danger" : "border-border"
@@ -188,8 +204,8 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
         fields={[
           { key: "company", label: "Company" },
           { key: "role", label: "Role" },
-          { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently working here", span: true },
+          { key: "start_date", label: "Start date", type: "month" },
+          { key: "end_date", label: "End date", type: "month", allowPresent: true, presentLabel: "Currently working here", span: true },
           { key: "description", label: "Description", textarea: true, span: true },
           { key: "achievements", label: "Achievements", span: true, isList: true },
           { key: "skills_used", label: "Skills used", span: true, isList: true },
@@ -206,8 +222,8 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
           { key: "degree", label: "Degree" },
           { key: "field", label: "Field" },
           { key: "grade", label: "Grade" },
-          { key: "start_date", label: "Start date", type: "date" },
-          { key: "end_date", label: "End date", type: "date", allowPresent: true, presentLabel: "Currently studying here", span: true },
+          { key: "start_date", label: "Start date", type: "month" },
+          { key: "end_date", label: "End date", type: "month", allowPresent: true, presentLabel: "Currently studying here", span: true },
         ]}
       />
 
@@ -245,7 +261,7 @@ export default function ExtractedProfileReview({ data, onSave, onBack, saving })
         fields={[
           { key: "name", label: "Name" },
           { key: "issuer", label: "Issuer" },
-          { key: "date_issued", label: "Date issued", type: "date" },
+          { key: "date_issued", label: "Date issued", type: "month" },
           { key: "credential_url", label: "Credential URL (optional)" },
         ]}
       />

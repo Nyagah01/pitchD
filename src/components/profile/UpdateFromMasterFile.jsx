@@ -8,6 +8,7 @@ import { structureProfile } from "../../lib/claudeApi";
 import { friendlyError } from "../../lib/friendlyError";
 import {
   upsertProfile,
+  sanitizeDates,
   experienceApi,
   educationApi,
   skillsApi,
@@ -79,10 +80,10 @@ export default function UpdateFromMasterFile({ currentProfile, onMerged }) {
 
       await upsertProfile({ ...mergedBasics, raw_intake: rawIntake });
       await Promise.all([
-        ...reviewed.experience.map((row) => experienceApi.create(row)),
-        ...reviewed.education.map((row) => educationApi.create(row)),
+        ...reviewed.experience.map((row) => experienceApi.create(sanitizeDates(row, ["start_date", "end_date"]))),
+        ...reviewed.education.map((row) => educationApi.create(sanitizeDates(row, ["start_date", "end_date"]))),
         ...reviewed.skills.map((row) => skillsApi.create(row)),
-        ...reviewed.certifications.map((row) => certificationsApi.create(row)),
+        ...reviewed.certifications.map((row) => certificationsApi.create(sanitizeDates(row, ["date_issued"]))),
         ...reviewed.projects.map((row) => projectsApi.create(row)),
       ]);
       setSavingDone(true);
