@@ -18,17 +18,24 @@ export async function getMyPortfolio() {
   return data;
 }
 
-export async function generatePortfolio() {
+export async function generatePortfolio(template, accent) {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   const full = await getFullProfile();
 
   const existing = await getMyPortfolio();
   const slug = existing?.slug ?? slugify(full.profile?.full_name);
+  // Preserve the existing template/accent choice on a plain "refresh with
+  // latest profile" (no new selection passed in) instead of silently
+  // resetting the look every time.
+  const meta = {
+    template: template ?? existing?.data?.meta?.template,
+    accent: accent ?? existing?.data?.meta?.accent,
+  };
 
   const { data, error } = await supabase
     .from("portfolio")
-    .upsert({ user_id: userId, slug, data: full }, { onConflict: "user_id" })
+    .upsert({ user_id: userId, slug, data: { ...full, meta } }, { onConflict: "user_id" })
     .select()
     .single();
   if (error) throw error;
