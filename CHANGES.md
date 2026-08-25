@@ -4,6 +4,22 @@ A running record of what's been done, for counterchecking against the live site.
 
 ---
 
+## Round 3 — third email reminder type (stale not-applied applications)
+
+**Ask:** email reminders covering interview dates, applications not yet applied to after a week, and approaching deadlines.
+
+**Status check:** interview-date and deadline reminders already existed (built earlier, part of the daily cron in `worker/index.js` → `runReminderSweep`, 07:00 UTC). The missing piece was the "not applied for a week" nudge — added now.
+
+**Change:** a third sweep in the same daily cron finds applications still sitting in `not_applied` status 7+ days after creation, emails a nudge ("Still sitting in your pipeline — {company}"), and marks a new `not_applied_reminder_sent` flag so it only ever fires once per application (same one-shot pattern as the other two reminder types — this doesn't nag weekly, just once).
+
+**⚠️ Action required before this works:** I added a new column (`not_applied_reminder_sent`) that the existing applications table doesn't have — `supabase/migrations/003_stale_application_reminders.sql`. **You need to run this in the Supabase SQL editor** (Project → SQL Editor → paste the file's contents → Run). I don't have your database credentials, so I can't run it myself. Until it's applied, this specific reminder type just silently no-ops (logs an error, sends nothing) — it won't break the existing interview/deadline reminders, which are unaffected.
+
+**Files:** `supabase/migrations/003_stale_application_reminders.sql` (new — needs to be run manually), `worker/index.js`.
+
+**Verified:** Build/lint/syntax-check clean. **Not verified against a real send** — needs the migration applied, a real Resend key, and an application that's actually 7+ days old and still `not_applied`, none of which I can produce myself.
+
+---
+
 ## Round 2 — CV flow, portfolio templates, autosave, dates, founder message
 
 ### 1. CV generation is now fast and reliable
