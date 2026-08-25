@@ -4,6 +4,25 @@ A running record of what's been done, for counterchecking against the live site.
 
 ---
 
+## Round 4 — friendly error + founder alert when Anthropic credit runs low
+
+**Trigger:** you flagged the Anthropic console showing $0.50 left — this directly powers every AI feature (generation, Jobo, portfolio text, everything through `callClaude`), so it was worth checking how that failure surfaces.
+
+**What was there before:** a low/zero-credit response from Anthropic fell into the generic catch-all and showed the same "Something went wrong on our end. Try again..." as any other unexpected error — not wrong, but not informative, and "try again" is actively misleading for something that won't resolve until funds are added.
+
+**Change:**
+- `callClaude` now specifically detects Anthropic's low-credit response (matches `"credit balance"` in the error body) and gives the end user a clear, honest message: *"We're temporarily unable to generate right now — our team's already been notified and is on it. Please try again in a little while."*
+- At the same time, it emails **you** (`ADMIN_ALERT_EMAIL`, set to briannyagah194@gmail.com in `worker/wrangler.toml`) with a direct link to the billing page — so you find out immediately instead of from a user complaint. Rate-limited to once an hour (via a new `system_alerts` table) so a burst of failed requests during an outage doesn't flood your inbox.
+- Also fixed a real bug this surfaced: the client-side error handling (`src/lib/claudeApi.js`, `src/lib/jobo.js`) was matching specific error-message substrings to decide what to show the user, so this new message (and technically also the existing "response got cut off" one) would've been silently swapped for the generic fallback instead of actually reaching the user. Now anything the worker marks as a deliberately user-safe message (`PublicError`, HTTP 422) is shown as-is, generically — no more pattern-matching allowlist to maintain.
+
+**⚠️ Action required:** new migration, same as last time — `supabase/migrations/004_system_alerts.sql` needs to be run in the Supabase SQL editor before the alert email will work. Until then it fails safe (logs an error, skips sending) rather than breaking anything.
+
+**Files:** `worker/index.js`, `worker/wrangler.toml`, `supabase/migrations/004_system_alerts.sql`, `src/lib/claudeApi.js`, `src/lib/jobo.js`.
+
+**Verified:** Build/lint/syntax-check clean. **Not verified against a real low-credit response** — would need your Anthropic account actually at $0 to trigger it for real, which I obviously won't force. The error-text match (`"credit balance"`) is based on Anthropic's documented error format, not something I could reproduce and confirm byte-for-byte here.
+
+---
+
 ## Round 3 — third email reminder type (stale not-applied applications)
 
 **Ask:** email reminders covering interview dates, applications not yet applied to after a week, and approaching deadlines.
