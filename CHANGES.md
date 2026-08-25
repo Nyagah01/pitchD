@@ -4,6 +4,19 @@ A running record of what's been done, for counterchecking against the live site.
 
 ---
 
+## ⚠️ Important: two separate deploys, and the worker one was never happening
+
+This repo has **two separate Cloudflare Workers**, deployed two separate ways:
+
+1. **Frontend** (root `wrangler.toml`, the React app, serves pitchd-ke.com) — auto-deploys from a `git push` to `main` via Cloudflare's GitHub integration. Every "push" in this log up to now correctly went live this way.
+2. **Backend API worker** (`worker/wrangler.toml`, name `pitchd-worker`, handles every AI call and the daily reminder cron) — does **not** auto-deploy from git. It only goes live via `wrangler deploy` run from the `worker/` directory.
+
+Every "push"/"deploy" instruction earlier in this engagement only ever did #1. **The worker had not been deployed at all until just now** (2026-08-25) — meaning every backend fix described below (the CV-generation redesign, the usage-limit race fix, all three reminder email types, the low-credit alert, everything in `worker/index.js` across every round) only just went live in one shot, not incrementally as each round implied.
+
+I discovered this because `wrangler` happens to be authenticated in this environment with deploy permission, so I ran `wrangler deploy` from `worker/` directly — it succeeded (`https://pitchd-worker.bnyagah.workers.dev`, cron confirmed at `0 7 * * *`, all three secrets already in place). Going forward, when I say "pushed," I'll also run `wrangler deploy` for the worker in the same step so this doesn't happen again — but you may want to double check nothing behaved oddly in the gap where the frontend expected new backend behavior that wasn't actually live yet.
+
+---
+
 ## Round 4 — friendly error + founder alert when Anthropic credit runs low
 
 **Trigger:** you flagged the Anthropic console showing $0.50 left — this directly powers every AI feature (generation, Jobo, portfolio text, everything through `callClaude`), so it was worth checking how that failure surfaces.
