@@ -9,24 +9,28 @@ import {
   updateApplication,
   toLocalDatetimeInput,
 } from "../../lib/applications";
+import { useAutosave } from "../../lib/useAutosave";
+import AutosaveStatus from "../common/AutosaveStatus";
 
 export default function ApplicationsTable({ applications, onChanged }) {
   const [expandedId, setExpandedId] = useState(null);
   const [pendingRejectionId, setPendingRejectionId] = useState(null);
   const [interviewDraft, setInterviewDraft] = useState("");
-  const [draftDirty, setDraftDirty] = useState(false);
+
+  const interviewDateStatus = useAutosave(
+    interviewDraft,
+    (d) =>
+      updateApplication(expandedId, { interview_date: d ? new Date(d).toISOString() : null }).then(onChanged),
+    { delay: 500, enabled: !!expandedId }
+  );
 
   function toggleExpand(app) {
     if (expandedId === app.id) {
       setExpandedId(null);
       return;
     }
-    if (draftDirty && !confirm("Discard the unsaved interview date you were editing?")) {
-      return;
-    }
     setExpandedId(app.id);
     setInterviewDraft(toLocalDatetimeInput(app.interview_date));
-    setDraftDirty(false);
   }
 
   async function handleStatusChange(app, status) {
@@ -36,14 +40,6 @@ export default function ApplicationsTable({ applications, onChanged }) {
       return;
     }
     await updateApplicationStatus(app.id, status);
-    onChanged();
-  }
-
-  async function saveInterviewDate(app) {
-    await updateApplication(app.id, {
-      interview_date: interviewDraft ? new Date(interviewDraft).toISOString() : null,
-    });
-    setDraftDirty(false);
     onChanged();
   }
 
@@ -124,26 +120,18 @@ export default function ApplicationsTable({ applications, onChanged }) {
                           <p className="text-sm text-text">{app.notes || "No notes yet."}</p>
                         </div>
                         <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-                            Interview date
-                          </p>
-                          <div className="flex gap-2">
-                            <input
-                              type="datetime-local"
-                              value={interviewDraft}
-                              onChange={(e) => {
-                                setInterviewDraft(e.target.value);
-                                setDraftDirty(true);
-                              }}
-                              className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
-                            />
-                            <button
-                              onClick={() => saveInterviewDate(app)}
-                              className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
-                            >
-                              Save
-                            </button>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                              Interview date
+                            </p>
+                            <AutosaveStatus status={interviewDateStatus} />
                           </div>
+                          <input
+                            type="datetime-local"
+                            value={interviewDraft}
+                            onChange={(e) => setInterviewDraft(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-primary"
+                          />
                         </div>
                       </div>
                       <Link
