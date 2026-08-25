@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function TypewriterLines({ lines, speed = 14, gap = 260, onDone }) {
+export default function TypewriterLines({ lines, speed = 4, gap = 90, onDone }) {
   const [lineIndex, setLineIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const doneRef = useRef(false);
